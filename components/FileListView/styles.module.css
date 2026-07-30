@@ -336,14 +336,16 @@
 .btnSecondary:hover { opacity: 0.8; }
 
 /* ─── Compare modal specifics ── */
-.compareTable {
+.body {
   flex: 1;
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
+  display: flex;
+  flex-direction: column;
 }
 
-.compareHeaderRow {
+.headerRow {
   display: flex;
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -352,40 +354,52 @@
   background: var(--card);
 }
 
-.dimLabelCol {
+.dimLabelHeader {
   flex-shrink: 0;
   padding: 12px 16px;
   border-right: 1px solid var(--border);
-  width: 150px;
+  width: 170px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
 }
-.dimColHeader {
+
+.paperColHeader {
   flex: 1;
   padding: 12px 16px;
-  min-width: 180px;
+  min-width: 220px;
 }
 
 .compareAccent {
   font-size: 10px;
   font-family: var(--font-mono);
   margin-bottom: 3px;
+  font-weight: 600;
 }
+
 .compareTitle {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--foreground);
+  font-weight: 500;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
 .compareMeta {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--muted-foreground);
   font-family: var(--font-mono);
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
-.dimRow { border-bottom: 1px solid var(--border); }
+.dimRow {
+  border-bottom: 1px solid var(--border);
+}
 
 .dimToggleBtn {
   display: flex;
@@ -398,18 +412,28 @@
   font-size: 12px;
   color: var(--foreground);
   font-weight: 500;
+  background: rgba(255, 255, 255, 0.015);
 }
-.dimToggleBtn:hover { background: rgba(255, 255, 255, 0.02); }
+.dimToggleBtn:hover { background: rgba(255, 255, 255, 0.04); }
 
-.dimContent { display: flex; border-top: 1px solid var(--border); }
-.dimSpacer { flex-shrink: 0; width: 150px; border-right: 1px solid var(--border); }
+.dimContent {
+  display: flex;
+  border-top: 1px solid var(--border);
+}
+
+.dimSpacer {
+  flex-shrink: 0;
+  width: 170px;
+  border-right: 1px solid var(--border);
+}
+
 .dimCell {
   flex: 1;
-  padding: 12px 16px;
-  min-width: 180px;
+  padding: 14px 16px;
+  min-width: 220px;
   font-size: 12px;
   color: var(--foreground);
-  line-height: 1.75;
+  line-height: 1.65;
 }
 
 /* ─── PaperRow ── */

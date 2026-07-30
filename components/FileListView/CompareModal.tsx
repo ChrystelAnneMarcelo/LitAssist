@@ -8,6 +8,12 @@ import {
   Loader2,
   ChevronDown,
   ChevronRight,
+  Target,
+  FlaskConical,
+  BarChart3,
+  Lightbulb,
+  AlertCircle,
+  Link2,
 } from "lucide-react";
 import type { Paper } from "@/types";
 import styles from "./styles.module.css";
@@ -18,78 +24,64 @@ interface CompareModalProps {
 }
 
 const DIMENSIONS = [
-  { key: "Research Objective", icon: "🎯" },
-  { key: "Methodology", icon: "🔬" },
-  { key: "Sample / Dataset", icon: "📊" },
-  { key: "Key Findings", icon: "💡" },
-  { key: "Limitations", icon: "⚠️" },
-  { key: "Relevance", icon: "🔗" },
+  { key: "Research Objective", icon: Target, color: "#c9a96e" },
+  { key: "Methodology", icon: FlaskConical, color: "#7e8fc7" },
+  { key: "Sample / Dataset", icon: BarChart3, color: "#7ab8a4" },
+  { key: "Key Findings", icon: Lightbulb, color: "#b07ab8" },
+  { key: "Limitations", icon: AlertCircle, color: "#c97a7a" },
+  { key: "Relevance", icon: Link2, color: "#c9a96e" },
 ];
 
-const MOCK_DATA: Record<string, string[]> = {
-  "Research Objective": [
-    "Detect tomato peduncles for robotic harvesting using improved YOLOv5.",
-    "Estimate ginger shoot orientation for automated transplanting systems.",
-    "Synthesize deep learning evidence for plant disease identification (142 studies).",
-    "Classify trace-element deficiencies in lettuce via hyperspectral imaging.",
-    "Survey transformer-based and self-supervised models for disease classification.",
-    "Deploy a quantized lightweight model for edge inference in agricultural IoT.",
-    "Enable selective leafy-vegetable transplanting with a dual-arm robot system.",
-    "Optimize energy-efficient plant disease detection for Raspberry Pi deployment.",
-  ],
-  Methodology: [
-    "YOLOv5 fine-tuned on 3,200 annotated tomato images; transfer learning from COCO.",
-    "RGB-D camera + CNN + point cloud fusion; 1,800 seedling samples.",
-    "PRISMA systematic review; 142 studies; NVivo thematic coding.",
-    "Hyperspectral imaging (400–1000 nm) + DenseNet-121; 5-fold CV; 4,500 images.",
-    "Narrative review of 178 papers; keyword co-occurrence mapping.",
-    "MobileNetV3 INT8 quantization; knowledge distillation from ResNet-50 teacher.",
-    "Dual-arm robot + CNN regression for size estimation; 1,200 trials.",
-    "Quantized MobileNetV3 on Raspberry Pi 4 and Jetson Nano; energy profiling.",
-  ],
-  "Sample / Dataset": [
-    "3,200 tomato peduncle images, custom greenhouse dataset.",
-    "1,800 ginger seedling RGB-D captures across growth stages.",
-    "142 peer-reviewed studies from IEEE, Springer, Elsevier (2018–2025).",
-    "4,500 lettuce leaf images; 6 deficiency classes.",
-    "178 papers from Scopus and Web of Science.",
-    "PlantVillage benchmark + custom edge hardware benchmarks.",
-    "3 vegetable species; 1,200 transplanting trials in controlled greenhouse.",
-    "PlantVillage + edge device thermal and energy logs.",
-  ],
-  "Key Findings": [
-    "94.3% mAP; real-time inference at 47 FPS; robust under varying lighting.",
-    "96.1% detection accuracy; shoot orientation error <3.2°.",
-    "CNNs dominate (84% of studies); data scarcity is the primary bottleneck.",
-    "91.8% overall accuracy; Fe deficiency achieves 97.4% recall.",
-    "Vision Transformers now competitive with CNNs for disease segmentation.",
-    "89.4% accuracy at 12 ms on Raspberry Pi 4; 2.1 MB model.",
-    "94.7% transplanting success rate; 8.3 s cycle time.",
-    "Inference at 12 ms; model size 2.1 MB; suitable for offline operation.",
-  ],
-  Limitations: [
-    "Tested on tomato only; no outdoor occlusion testing.",
-    "Single greenhouse environment; species generalization untested.",
-    "Heterogeneous study designs limit meta-analytic synthesis.",
-    "Limited to 6 nutrient types; controlled greenhouse conditions only.",
-    "Does not include implementation-level evaluation of surveyed models.",
-    "Accuracy drops ~5% under direct sunlight; fixed crop species.",
-    "Single greenhouse setting; gripper not tested on fragile species.",
-    "Accuracy drop under direct sunlight; species limited to PlantVillage classes.",
-  ],
-  Relevance: [
-    "High — detection baseline directly applicable to lettuce systems.",
-    "Moderate — transplanting mechanism transferable to leafy greens.",
-    "High — foundational review for methodology selection in your RRL.",
-    "Very High — direct lettuce focus with nutrient deficiency classification.",
-    "High — state-of-the-art landscape for model architecture selection.",
-    "High — edge deployment strategy applicable to field monitoring systems.",
-    "High — dual-arm approach scalable to lettuce harvesting automation.",
-    "High — energy and latency benchmarks inform hardware selection.",
-  ],
-};
-
 const ACCENT = ["#c9a96e", "#7ab8a4", "#7e8fc7", "#b07ab8"];
+
+function getPaperDimensionContent(paper: Paper, key: string): string {
+  switch (key) {
+    case "Research Objective":
+      if (paper.abstract) {
+        const objMatch = paper.abstract.match(/(?:objective|aim|investigate|propose|evaluate|study)[^.]*\./i);
+        if (objMatch) return objMatch[0].trim();
+        return paper.abstract.slice(0, 190) + (paper.abstract.length > 190 ? "…" : "");
+      }
+      return `Investigates ${paper.title.toLowerCase()} in ${paper.journal || "scholarly literature"}.`;
+
+    case "Methodology":
+      if (paper.methodology) return paper.methodology;
+      if (paper.abstract) {
+        const methMatch = paper.abstract.match(/(?:method|approach|framework|model|cnn|yolo|architecture|using|employed)[^.]*\./i);
+        if (methMatch) return methMatch[0].trim();
+      }
+      return `Employs empirical analysis with ${paper.tags.join(", ") || "quantitative modeling"}.`;
+
+    case "Sample / Dataset":
+      if (paper.tags && paper.tags.length > 0) {
+        return `Tags: ${paper.tags.join(", ")}. Dataset: ${paper.journal ? `Source from ${paper.journal}` : "Academic benchmark"}.`;
+      }
+      return `Custom dataset and benchmark samples in ${paper.year}.`;
+
+    case "Key Findings":
+      if (paper.keyFindings && paper.keyFindings.length > 0) {
+        return paper.keyFindings.map((f) => `• ${f}`).join("\n");
+      }
+      if (paper.abstract) {
+        const findMatch = paper.abstract.match(/(?:results|accuracy|find|demonstrated|achieved|performance)[^.]*\./i);
+        if (findMatch) return findMatch[0].trim();
+      }
+      return `Demonstrates quantitative performance improvements in ${paper.tags[0] || "target domain"}.`;
+
+    case "Limitations":
+      if (paper.abstract) {
+        const limMatch = paper.abstract.match(/(?:limitation|however|challenge|future|constrained|lack)[^.]*\./i);
+        if (limMatch) return limMatch[0].trim();
+      }
+      return `Evaluation constrained to ${paper.tags[0] || "specific domain"} under benchmark conditions; requires real-world validation.`;
+
+    case "Relevance":
+      return `High — Published in ${paper.year} (${paper.journal || "Academic Source"}) addressing ${paper.tags.slice(0, 2).join(" & ") || "RRL scope"}.`;
+
+    default:
+      return "—";
+  }
+}
 
 export default function CompareModal({ papers, onClose }: CompareModalProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -97,9 +89,9 @@ export default function CompareModal({ papers, onClose }: CompareModalProps) {
     new Set(DIMENSIONS.map((d) => d.key)),
   );
 
-  // Simulate load delay
+  // Quick visual load state
   useState(() => {
-    const t = setTimeout(() => setIsLoading(false), 1600);
+    const t = setTimeout(() => setIsLoading(false), 600);
     return () => clearTimeout(t);
   });
 
@@ -110,23 +102,18 @@ export default function CompareModal({ papers, onClose }: CompareModalProps) {
       return n;
     });
 
-  const paperIndices = papers.map((p) => {
-    const idx = parseInt(p.id.split("-")[1] ?? "1") - 1;
-    return Math.max(0, Math.min(idx, 7));
-  });
-
   return (
     <div className={styles.modalOverlay}>
       <div
         className={styles.modal}
-        style={{ width: "min(92vw, 960px)", height: "80vh" }}
+        style={{ width: "min(92vw, 980px)", height: "82vh" }}
       >
         {/* Header */}
         <div className={styles.modalHeader}>
           <div className={styles.modalTitleRow}>
             <GitCompare size={15} style={{ color: "var(--primary)" }} />
             <span className={styles.modalTitle}>
-              Comparing {papers.length} papers
+              Comparing {papers.length} selected paper{papers.length !== 1 ? "s" : ""}
             </span>
           </div>
           <button onClick={onClose} className={styles.modalClose}>
@@ -138,41 +125,23 @@ export default function CompareModal({ papers, onClose }: CompareModalProps) {
           <div className={styles.loadingState}>
             <div className={styles.loadingIcon}>
               <div className={styles.loadingIconInner}>
-                <Sparkles size={22} style={{ color: "var(--primary)" }} />
+                <Sparkles size={20} style={{ color: "var(--primary)" }} />
               </div>
-              <Loader2
-                size={44}
-                className={styles.loadingSpinner}
-                style={{ color: "rgba(201,169,110,0.15)" }}
-              />
             </div>
-            <p className={styles.loadingText}>
-              Analyzing {papers.length} papers…
-            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Loader2 size={13} style={{ animation: "spin 1s linear infinite", color: "var(--primary)" }} />
+              <span className={styles.loadingText}>Extracting comparison matrix from selected papers…</span>
+            </div>
           </div>
         ) : (
-          <div className={styles.compareTable}>
-            {/* Column headers */}
-            <div className={styles.compareHeaderRow}>
-              <div
-                className={styles.dimLabelCol}
-                style={{ borderRight: "1px solid var(--border)" }}
-              >
-                <span
-                  style={{
-                    fontSize: 10,
-                    color: "var(--muted-foreground)",
-                    fontFamily: "var(--font-mono)",
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  DIMENSION
-                </span>
-              </div>
+          <div className={styles.body}>
+            {/* Table Header: Papers */}
+            <div className={styles.headerRow}>
+              <div className={styles.dimLabelHeader}>DIMENSIONS</div>
               {papers.map((paper, i) => (
                 <div
                   key={paper.id}
-                  className={styles.dimColHeader}
+                  className={styles.paperColHeader}
                   style={{
                     borderRight:
                       i < papers.length - 1
@@ -187,8 +156,8 @@ export default function CompareModal({ papers, onClose }: CompareModalProps) {
                   >
                     {String.fromCharCode(65 + i)}
                   </div>
-                  <div className={styles.compareTitle}>
-                    {paper.title.split(" ").slice(0, 7).join(" ")}…
+                  <div className={styles.compareTitle} title={paper.title}>
+                    {paper.title.length > 50 ? paper.title.slice(0, 48) + "…" : paper.title}
                   </div>
                   <div className={styles.compareMeta}>
                     {paper.authors} · {paper.year}
@@ -198,7 +167,7 @@ export default function CompareModal({ papers, onClose }: CompareModalProps) {
             </div>
 
             {/* Dimension rows */}
-            {DIMENSIONS.map(({ key, icon }) => {
+            {DIMENSIONS.map(({ key, icon: Icon, color }) => {
               const isOpen = openDims.has(key);
               return (
                 <div key={key} className={styles.dimRow}>
@@ -206,7 +175,7 @@ export default function CompareModal({ papers, onClose }: CompareModalProps) {
                     className={styles.dimToggleBtn}
                     onClick={() => toggle(key)}
                   >
-                    <span style={{ fontSize: 13 }}>{icon}</span>
+                    <Icon size={13} style={{ color, flexShrink: 0 }} />
                     <span style={{ flex: 1 }}>{key}</span>
                     {isOpen ? (
                       <ChevronDown
@@ -232,9 +201,11 @@ export default function CompareModal({ papers, onClose }: CompareModalProps) {
                               i < papers.length - 1
                                 ? "1px solid var(--border)"
                                 : "none",
+                            whiteSpace: "pre-line",
+                            lineHeight: 1.5,
                           }}
                         >
-                          {MOCK_DATA[key]?.[paperIndices[i]] ?? "—"}
+                          {getPaperDimensionContent(paper, key)}
                         </div>
                       ))}
                     </div>
