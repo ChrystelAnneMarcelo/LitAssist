@@ -1,0 +1,38 @@
+{
+  "name": "litassist",
+  "version": "1.0.0",
+  "description": "LitAssist - Intelligent RRL Analysis Chatbot",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "next dev",
+    "build": "next build",
+    "preview": "vite preview",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChrystelAnneMarcelo/LitAssist.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/ChrystelAnneMarcelo/LitAssist/issues"
+  },
+  "homepage": "https://github.com/ChrystelAnneMarcelo/LitAssist#readme",
+  "dependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "lucide-react": "^1.28.0",
+    "next": "^16.2.12",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.2"
+  }
+}
