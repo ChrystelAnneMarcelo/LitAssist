@@ -1,0 +1,503 @@
+/* ─── FileListView ────────────────────────────────────────────────────────────
+   Center panel: paper list, toolbar, tab switcher
+───────────────────────────────────────────────────────────────────────────── */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ─── Top bar ── */
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 48px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.projectTitle {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  color: var(--foreground);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.topBarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.fileCount {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+}
+
+.toolbarBtns {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.toolbarBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--muted-foreground);
+  transition: background 0.15s;
+}
+.toolbarBtn:hover { background: rgba(255, 255, 255, 0.05); }
+
+.toolbarIcon {
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  color: var(--muted-foreground);
+  transition: background 0.15s;
+}
+.toolbarIcon:hover { background: rgba(255, 255, 255, 0.05); }
+
+/* ─── Tab bar ── */
+.tabBar {
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  height: 40px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 16px;
+}
+
+.centerTab {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  font-weight: 400;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s ease;
+}
+.centerTab.activeTab {
+  color: var(--foreground);
+  font-weight: 500;
+  border-bottom-color: var(--primary);
+}
+
+.tabActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.compareBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--primary);
+  font-family: var(--font-mono);
+}
+
+.clearBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+/* ─── Column headers ── */
+.columnHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  height: 36px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.01);
+  flex-shrink: 0;
+}
+
+.colName {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+}
+
+.colAuthors {
+  width: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.colAdded {
+  width: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.rowActionsSpacer {
+  width: 46px;
+  flex-shrink: 0;
+}
+
+/* ─── Paper list ── */
+.paperList {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* ─── Empty state ── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  opacity: 0.5;
+}
+.emptyTitle {
+  font-family: var(--font-serif);
+  color: var(--foreground);
+  font-size: 14px;
+  text-align: center;
+}
+.emptyHint {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  text-align: center;
+  margin-top: 4px;
+}
+
+/* ─── Modal overlay (shared by Add & Compare) ── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.modalTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modalTitle {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  color: var(--foreground);
+  font-weight: 400;
+}
+
+.modalClose {
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  color: var(--muted-foreground);
+  transition: background 0.15s;
+}
+.modalClose:hover { background: rgba(255, 255, 255, 0.05); }
+
+.modalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+
+.modalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+}
+
+/* ─── Form elements ── */
+.fieldLabel {
+  display: block;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.input {
+  width: 100%;
+  background: var(--input-background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--foreground);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+}
+
+.textarea {
+  width: 100%;
+  background: var(--input-background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--foreground);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  resize: vertical;
+  min-height: 80px;
+}
+
+.fieldRow {
+  display: flex;
+  gap: 12px;
+}
+
+/* ─── Buttons ── */
+.btnPrimary {
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 13px;
+  transition: opacity 0.15s;
+}
+.btnPrimary:hover { opacity: 0.9; }
+.btnPrimary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btnSecondary {
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 13px;
+  transition: opacity 0.15s;
+}
+.btnSecondary:hover { opacity: 0.8; }
+
+/* ─── Compare modal specifics ── */
+.compareTable {
+  flex: 1;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.compareHeaderRow {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--card);
+}
+
+.dimLabelCol {
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-right: 1px solid var(--border);
+  width: 150px;
+}
+.dimColHeader {
+  flex: 1;
+  padding: 12px 16px;
+  min-width: 180px;
+}
+
+.compareAccent {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  margin-bottom: 3px;
+}
+.compareTitle {
+  font-size: 11px;
+  color: var(--foreground);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.compareMeta {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  margin-top: 2px;
+}
+
+.dimRow { border-bottom: 1px solid var(--border); }
+
+.dimToggleBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s;
+  font-size: 12px;
+  color: var(--foreground);
+  font-weight: 500;
+}
+.dimToggleBtn:hover { background: rgba(255, 255, 255, 0.02); }
+
+.dimContent { display: flex; border-top: 1px solid var(--border); }
+.dimSpacer { flex-shrink: 0; width: 150px; border-right: 1px solid var(--border); }
+.dimCell {
+  flex: 1;
+  padding: 12px 16px;
+  min-width: 180px;
+  font-size: 12px;
+  color: var(--foreground);
+  line-height: 1.75;
+}
+
+/* ─── PaperRow ── */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.rowCheck {
+  flex-shrink: 0;
+}
+
+.rowFileIcon {
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+.rowTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--foreground);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowAuthors {
+  width: 140px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  text-align: right;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowDate {
+  width: 70px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.rowActions {
+  width: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* ─── Loading state ── */
+.loadingState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.loadingIcon {
+  position: relative;
+}
+.loadingIconInner {
+  border-radius: 50%;
+  padding: 16px;
+  background: rgba(201, 169, 110, 0.08);
+  border: 1px solid rgba(201, 169, 110, 0.2);
+}
+.loadingSpinner {
+  position: absolute;
+  inset: 0;
+  animation: spin 1s linear infinite;
+  color: rgba(201, 169, 110, 0.15);
+}
+.loadingText {
+  font-family: var(--font-serif);
+  color: var(--foreground);
+  font-size: 14px;
+}

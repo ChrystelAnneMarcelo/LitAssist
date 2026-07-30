@@ -1,0 +1,348 @@
+/* ─── RightPanel ──────────────────────────────────────────────────────────────
+   Right panel: Ask AI chat tab + Notes tab
+───────────────────────────────────────────────────────────────────────────── */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex-shrink: 0;
+  width: 320px;
+  border-left: 1px solid var(--border);
+  background: var(--card);
+}
+
+/* ─── Header tabs ── */
+.header {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  font-weight: 400;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s ease;
+}
+.tab.active {
+  color: var(--foreground);
+  font-weight: 500;
+  border-bottom-color: var(--primary);
+}
+
+.selectedBadge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 9999px;
+  padding: 2px 8px;
+  margin-left: auto;
+  background: rgba(201, 169, 110, 0.1);
+  border: 1px solid rgba(201, 169, 110, 0.2);
+}
+.selectedBadgeText {
+  font-size: 9px;
+  color: var(--primary);
+  font-family: var(--font-mono);
+}
+
+/* ─── Context bar ── */
+.contextBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(201, 169, 110, 0.03);
+  flex-shrink: 0;
+}
+.contextText {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+}
+.contextDots {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0.6;
+}
+
+/* ─── Chat messages area ── */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* ─── Empty state ── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.emptyHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 0;
+  opacity: 0.7;
+}
+
+.emptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(201, 169, 110, 0.08);
+  border: 1px solid rgba(201, 169, 110, 0.2);
+}
+
+.emptyTitle {
+  font-family: var(--font-serif);
+  color: var(--foreground);
+  font-size: 13px;
+  text-align: center;
+}
+
+.emptyHint {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  text-align: center;
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+.suggestionsLabel {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.suggestionBtn {
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+  line-height: 1.4;
+  transition: background 0.15s;
+  width: 100%;
+}
+.suggestionBtn:hover { background: rgba(255, 255, 255, 0.05); }
+
+/* ─── Message bubbles ── */
+.messageRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.messageRow.user { align-items: flex-end; }
+.messageRow.assistant { align-items: flex-start; }
+
+.messageAuthor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.authorIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(201, 169, 110, 0.15);
+}
+
+.authorName {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+}
+
+.bubble {
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  max-width: 90%;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.bubble.user {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.bubble.assistant {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.bubbleContent p { line-height: 1.7; }
+.bubbleContent p + p { margin-top: 6px; }
+
+.msgActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.copyMsgBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  transition: background 0.15s;
+}
+.copyMsgBtn:hover { background: rgba(255, 255, 255, 0.05); }
+
+/* ─── Typing indicator ── */
+.typing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+}
+.typingText {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+/* ─── Input area ── */
+.inputArea {
+  flex-shrink: 0;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.newChatBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  margin-bottom: 8px;
+  transition: opacity 0.15s;
+}
+.newChatBtn:hover { opacity: 0.7; }
+
+.inputBox {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  border-radius: var(--radius-lg);
+  padding: 8px 12px;
+  background: var(--input-background);
+  border: 1px solid var(--border);
+}
+
+.inputTextarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--foreground);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  resize: none;
+  line-height: 1.5;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.sendBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.sendBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.inputHint {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  margin-top: 6px;
+  text-align: center;
+}
+
+/* ─── Notes tab ── */
+.notesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.notesLabel {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+}
+
+.notesCount {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+}
+
+.notesTextarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--foreground);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  line-height: 1.7;
+  resize: none;
+  padding: 16px;
+}

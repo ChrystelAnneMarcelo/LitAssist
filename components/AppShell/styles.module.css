@@ -1,0 +1,11 @@
+/* ─── AppShell ────────────────────────────────────────────────────────────────
+   Root 3-panel layout: sidebar | file list | right panel
+───────────────────────────────────────────────────────────────────────────── */
+
+.shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--background);
+  font-family: var(--font-sans);
+}
