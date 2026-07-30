@@ -110,7 +110,13 @@ export default function AppShell() {
     papers: [],
   };
 
-  const activeChatSession = chatSessions.find((c) => c.id === activeChatId) ?? null;
+  const activeChatSession = chatSessions.find((c) => c.id === activeChatId) ?? chatSessions[0] ?? {
+    id: "default-session",
+    projectId: activeProjectId,
+    title: "New RRL Chat",
+    createdAt: "Just now",
+    messages: [],
+  };
 
   const handleSelectChat = (chatId: string) => {
     setActiveChatId(chatId);

@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
     const { question, papers, projectName } = await req.json();
 
-    // 1. API KEY
+    // 1. API KEY (Replace string or set env variable when given your team's API key)
     const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || "";
 
-    // 2.  CUSTOM TEAM API URL (Change pag meron na api)
+    // 2. CUSTOM TEAM API URL (Change when given team endpoint URL)
     const CUSTOM_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
     // Format selected paper context into RAG prompt
@@ -24,8 +24,8 @@ Key Findings: ${p.keyFindings ? p.keyFindings.join('; ') : 'N/A'}
 `).join("\n---\n")
       : "No specific papers selected. Analyze literature generally for project: " + (projectName || "RRL Analysis");
 
-    // Send payload to API when API Key or Custom URL is active
-    if (apiKey || CUSTOM_API_URL) {
+    // Only call external API if an API key is actually set!
+    if (apiKey) {
       const prompt = `You are LitAssist, an expert AI Literature Review (RRL) Analysis Assistant.
 Project: "${projectName || 'Literature Review'}".
 
@@ -36,7 +36,6 @@ User Question: "${question}"
 
 Provide a detailed, highly academic, structured, and insightful response synthesizing the literature. Use clear markdown formatting.`;
 
-      // 📡 CALL YOUR API ENDPOINT HERE
       const response = await fetch(`${CUSTOM_API_URL}?key=${apiKey}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -54,7 +53,7 @@ Provide a detailed, highly academic, structured, and insightful response synthes
       }
     }
 
-    // Fallback: Client-side Literature Synthesis Engine (if API returns null or not configured)
+    // Fallback: Client-side Literature Synthesis Engine (runs when no API key is set)
     return NextResponse.json({ text: null });
   } catch (err: any) {
     console.error("Chat API error:", err);

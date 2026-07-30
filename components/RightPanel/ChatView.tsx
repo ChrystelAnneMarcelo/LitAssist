@@ -223,8 +223,9 @@ export default function ChatView({
   }, [messages, isTyping]);
 
   const send = async (text: string) => {
-    if (!text.trim() || isTyping || !activeChatSession) return;
+    if (!text.trim() || isTyping) return;
 
+    const sessionId = activeChatSession?.id || `c-${Date.now()}`;
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg: ChatMessage = { id: `m-${Date.now()}`, role: "user", content: text.trim(), timestamp };
     const updatedWithUser = [...messages, userMsg];
@@ -235,7 +236,7 @@ export default function ChatView({
     }
 
     if (onUpdateChatMessages) {
-      onUpdateChatMessages(activeChatSession.id, updatedWithUser, newTitle);
+      onUpdateChatMessages(sessionId, updatedWithUser, newTitle);
     }
 
     setInput("");
@@ -282,7 +283,7 @@ export default function ChatView({
 
     const updatedWithAi = [...updatedWithUser, aiMsg];
     if (onUpdateChatMessages) {
-      onUpdateChatMessages(activeChatSession.id, updatedWithAi, newTitle);
+      onUpdateChatMessages(sessionId, updatedWithAi, newTitle);
     }
 
     setIsTyping(false);
