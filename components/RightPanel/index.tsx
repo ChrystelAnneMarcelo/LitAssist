@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageSquare, StickyNote, FileText } from "lucide-react";
-import type { Project, Paper, RightTab } from "@/types";
+import type { Project, Paper, RightTab, ChatSession, ChatMessage } from "@/types";
 import ChatView from "./ChatView";
 import NotesView from "./NotesView";
 import styles from "./styles.module.css";
@@ -11,9 +11,20 @@ interface RightPanelProps {
   tab: RightTab;
   onTabChange: (tab: RightTab) => void;
   selectedPapers: Paper[];
+  activeChatSession?: ChatSession | null;
+  onUpdateChatMessages?: (chatId: string, messages: ChatMessage[], newTitle?: string) => void;
+  onNewChat?: () => void;
 }
 
-export default function RightPanel({ project, tab, onTabChange, selectedPapers }: RightPanelProps) {
+export default function RightPanel({
+  project,
+  tab,
+  onTabChange,
+  selectedPapers,
+  activeChatSession,
+  onUpdateChatMessages,
+  onNewChat,
+}: RightPanelProps) {
   return (
     <div className={styles.panel}>
       {/* Header tabs */}
@@ -41,7 +52,13 @@ export default function RightPanel({ project, tab, onTabChange, selectedPapers }
 
       {/* Tab content */}
       {tab === "ask" ? (
-        <ChatView project={project} selectedPapers={selectedPapers} />
+        <ChatView
+          project={project}
+          selectedPapers={selectedPapers}
+          activeChatSession={activeChatSession}
+          onUpdateChatMessages={onUpdateChatMessages}
+          onNewChat={onNewChat}
+        />
       ) : (
         <NotesView project={project} />
       )}

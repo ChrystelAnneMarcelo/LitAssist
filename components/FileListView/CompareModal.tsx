@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { GitCompare, X, Sparkles, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  GitCompare,
+  X,
+  Sparkles,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import type { Paper } from "@/types";
 import styles from "./styles.module.css";
 
@@ -12,11 +19,11 @@ interface CompareModalProps {
 
 const DIMENSIONS = [
   { key: "Research Objective", icon: "🎯" },
-  { key: "Methodology",        icon: "🔬" },
-  { key: "Sample / Dataset",   icon: "📊" },
-  { key: "Key Findings",       icon: "💡" },
-  { key: "Limitations",        icon: "⚠️" },
-  { key: "Relevance",          icon: "🔗" },
+  { key: "Methodology", icon: "🔬" },
+  { key: "Sample / Dataset", icon: "📊" },
+  { key: "Key Findings", icon: "💡" },
+  { key: "Limitations", icon: "⚠️" },
+  { key: "Relevance", icon: "🔗" },
 ];
 
 const MOCK_DATA: Record<string, string[]> = {
@@ -30,7 +37,7 @@ const MOCK_DATA: Record<string, string[]> = {
     "Enable selective leafy-vegetable transplanting with a dual-arm robot system.",
     "Optimize energy-efficient plant disease detection for Raspberry Pi deployment.",
   ],
-  "Methodology": [
+  Methodology: [
     "YOLOv5 fine-tuned on 3,200 annotated tomato images; transfer learning from COCO.",
     "RGB-D camera + CNN + point cloud fusion; 1,800 seedling samples.",
     "PRISMA systematic review; 142 studies; NVivo thematic coding.",
@@ -60,7 +67,7 @@ const MOCK_DATA: Record<string, string[]> = {
     "94.7% transplanting success rate; 8.3 s cycle time.",
     "Inference at 12 ms; model size 2.1 MB; suitable for offline operation.",
   ],
-  "Limitations": [
+  Limitations: [
     "Tested on tomato only; no outdoor occlusion testing.",
     "Single greenhouse environment; species generalization untested.",
     "Heterogeneous study designs limit meta-analytic synthesis.",
@@ -70,7 +77,7 @@ const MOCK_DATA: Record<string, string[]> = {
     "Single greenhouse setting; gripper not tested on fragile species.",
     "Accuracy drop under direct sunlight; species limited to PlantVillage classes.",
   ],
-  "Relevance": [
+  Relevance: [
     "High — detection baseline directly applicable to lettuce systems.",
     "Moderate — transplanting mechanism transferable to leafy greens.",
     "High — foundational review for methodology selection in your RRL.",
@@ -87,7 +94,7 @@ const ACCENT = ["#c9a96e", "#7ab8a4", "#7e8fc7", "#b07ab8"];
 export default function CompareModal({ papers, onClose }: CompareModalProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [openDims, setOpenDims] = useState<Set<string>>(
-    new Set(DIMENSIONS.map((d) => d.key))
+    new Set(DIMENSIONS.map((d) => d.key)),
   );
 
   // Simulate load delay
@@ -118,7 +125,9 @@ export default function CompareModal({ papers, onClose }: CompareModalProps) {
         <div className={styles.modalHeader}>
           <div className={styles.modalTitleRow}>
             <GitCompare size={15} style={{ color: "var(--primary)" }} />
-            <span className={styles.modalTitle}>Comparing {papers.length} papers</span>
+            <span className={styles.modalTitle}>
+              Comparing {papers.length} papers
+            </span>
           </div>
           <button onClick={onClose} className={styles.modalClose}>
             <X size={15} />
@@ -137,25 +146,45 @@ export default function CompareModal({ papers, onClose }: CompareModalProps) {
                 style={{ color: "rgba(201,169,110,0.15)" }}
               />
             </div>
-            <p className={styles.loadingText}>Analyzing {papers.length} papers…</p>
+            <p className={styles.loadingText}>
+              Analyzing {papers.length} papers…
+            </p>
           </div>
         ) : (
           <div className={styles.compareTable}>
             {/* Column headers */}
             <div className={styles.compareHeaderRow}>
-              <div className={styles.dimLabelCol} style={{ borderRight: "1px solid var(--border)" }}>
-                <span style={{ fontSize: 10, color: "var(--muted-foreground)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>DIMENSION</span>
+              <div
+                className={styles.dimLabelCol}
+                style={{ borderRight: "1px solid var(--border)" }}
+              >
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "var(--muted-foreground)",
+                    fontFamily: "var(--font-mono)",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  DIMENSION
+                </span>
               </div>
               {papers.map((paper, i) => (
                 <div
                   key={paper.id}
                   className={styles.dimColHeader}
                   style={{
-                    borderRight: i < papers.length - 1 ? "1px solid var(--border)" : "none",
+                    borderRight:
+                      i < papers.length - 1
+                        ? "1px solid var(--border)"
+                        : "none",
                     borderTop: `2px solid ${ACCENT[i % ACCENT.length]}`,
                   }}
                 >
-                  <div className={styles.compareAccent} style={{ color: ACCENT[i % ACCENT.length] }}>
+                  <div
+                    className={styles.compareAccent}
+                    style={{ color: ACCENT[i % ACCENT.length] }}
+                  >
                     {String.fromCharCode(65 + i)}
                   </div>
                   <div className={styles.compareTitle}>
@@ -173,12 +202,23 @@ export default function CompareModal({ papers, onClose }: CompareModalProps) {
               const isOpen = openDims.has(key);
               return (
                 <div key={key} className={styles.dimRow}>
-                  <button className={styles.dimToggleBtn} onClick={() => toggle(key)}>
+                  <button
+                    className={styles.dimToggleBtn}
+                    onClick={() => toggle(key)}
+                  >
                     <span style={{ fontSize: 13 }}>{icon}</span>
                     <span style={{ flex: 1 }}>{key}</span>
-                    {isOpen
-                      ? <ChevronDown size={12} style={{ color: "var(--muted-foreground)" }} />
-                      : <ChevronRight size={12} style={{ color: "var(--muted-foreground)" }} />}
+                    {isOpen ? (
+                      <ChevronDown
+                        size={12}
+                        style={{ color: "var(--muted-foreground)" }}
+                      />
+                    ) : (
+                      <ChevronRight
+                        size={12}
+                        style={{ color: "var(--muted-foreground)" }}
+                      />
+                    )}
                   </button>
                   {isOpen && (
                     <div className={styles.dimContent}>
@@ -187,7 +227,12 @@ export default function CompareModal({ papers, onClose }: CompareModalProps) {
                         <div
                           key={paper.id}
                           className={styles.dimCell}
-                          style={{ borderRight: i < papers.length - 1 ? "1px solid var(--border)" : "none" }}
+                          style={{
+                            borderRight:
+                              i < papers.length - 1
+                                ? "1px solid var(--border)"
+                                : "none",
+                          }}
                         >
                           {MOCK_DATA[key]?.[paperIndices[i]] ?? "—"}
                         </div>

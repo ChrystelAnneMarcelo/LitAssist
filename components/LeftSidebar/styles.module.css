@@ -236,6 +236,20 @@
   font-family: var(--font-mono);
 }
 
+.themeToggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  color: var(--muted-foreground);
+  transition: all 0.15s ease;
+}
+.themeToggleBtn:hover {
+  color: var(--primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 /* ─── Collapsed icon strip ── */
 .collapsedIcons {
   display: flex;

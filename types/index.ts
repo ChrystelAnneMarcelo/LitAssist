@@ -19,6 +19,21 @@ export interface Project {
   description: string;
 }
 
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+}
+
+export interface ChatSession {
+  id: string;
+  projectId: string;
+  title: string;
+  createdAt: string;
+  messages: ChatMessage[];
+}
+
 export type CenterTab = "files" | "analyze";
 export type SidebarTab = "files" | "chats";
 export type RightTab = "ask" | "notes";

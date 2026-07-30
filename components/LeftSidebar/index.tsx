@@ -1,36 +1,48 @@
 "use client";
 
 import { useState } from "react";
-import { FolderOpen, MessageSquare, Plus, BookMarked, Sparkles, ChevronDown } from "lucide-react";
-import type { Project, SidebarTab } from "@/types";
+import { FolderOpen, MessageSquare, Plus, BookMarked, Sparkles, ChevronDown, Sun, Moon, Trash2 } from "lucide-react";
+import type { Project, SidebarTab, ChatSession } from "@/types";
 import AddProjectModal from "./AddProjectModal";
 import styles from "./styles.module.css";
-
-const CHAT_HISTORY = [
-  { id: "c1", label: "Summarize lettuce deficiency paper", time: "2h ago" },
-  { id: "c2", label: "What are gaps in YOLOv5 studies?", time: "Yesterday" },
-  { id: "c3", label: "Compare methodologies across papers", time: "May 9" },
-];
 
 interface LeftSidebarProps {
   projects: Project[];
   activeProjectId: string;
+  chatSessions?: ChatSession[];
+  activeChatId?: string | null;
   sidebarTab: SidebarTab;
   onTabChange: (tab: SidebarTab) => void;
   onSelectProject: (id: string) => void;
   onAddProject: (name: string) => void;
+  onDeleteProject?: (id: string) => void;
+  onSelectChat?: (chatId: string) => void;
+  onNewChat?: () => void;
+  onDeleteChat?: (chatId: string) => void;
+  theme?: "dark" | "light";
+  onToggleTheme?: () => void;
 }
 
 export default function LeftSidebar({
   projects,
   activeProjectId,
+  chatSessions = [],
+  activeChatId,
   sidebarTab,
   onTabChange,
   onSelectProject,
   onAddProject,
+  onDeleteProject,
+  onSelectChat,
+  onNewChat,
+  onDeleteChat,
+  theme = "dark",
+  onToggleTheme,
 }: LeftSidebarProps) {
   const [showAddProject, setShowAddProject] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [hoveredProjectId, setHoveredProjectId] = useState<string | null>(null);
+  const [hoveredChatId, setHoveredChatId] = useState<string | null>(null);
 
   return (
     <>
@@ -57,21 +69,37 @@ export default function LeftSidebar({
             <button
               className={`${styles.iconBtn} ${sidebarTab === "files" ? styles.active : ""}`}
               onClick={() => { onTabChange("files"); setCollapsed(false); }}
+              title="Files"
             >
               <FolderOpen size={16} />
             </button>
             <button
               className={`${styles.iconBtn} ${sidebarTab === "chats" ? styles.active : ""}`}
               onClick={() => { onTabChange("chats"); setCollapsed(false); }}
+              title="Chats"
             >
               <MessageSquare size={16} />
             </button>
             <button
               className={styles.iconBtn}
-              onClick={() => setShowAddProject(true)}
+              onClick={() => {
+                if (sidebarTab === "files") setShowAddProject(true);
+                else if (onNewChat) onNewChat();
+              }}
+              title={sidebarTab === "files" ? "New project" : "New chat"}
             >
               <Plus size={16} />
             </button>
+            {onToggleTheme && (
+              <button
+                className={styles.iconBtn}
+                onClick={onToggleTheme}
+                title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                style={{ marginTop: "auto" }}
+              >
+                {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -104,24 +132,51 @@ export default function LeftSidebar({
 
                   {projects.map((project) => {
                     const isActive = project.id === activeProjectId;
+                    const isHovered = hoveredProjectId === project.id;
                     return (
-                      <button
+                      <div
                         key={project.id}
-                        className={`${styles.projectItem} ${isActive ? styles.active : ""}`}
-                        onClick={() => onSelectProject(project.id)}
+                        onMouseEnter={() => setHoveredProjectId(project.id)}
+                        onMouseLeave={() => setHoveredProjectId(null)}
+                        style={{ position: "relative", display: "flex", alignItems: "center" }}
                       >
-                        <BookMarked
-                          size={12}
-                          className={styles.projectIcon}
-                          style={{ color: isActive ? "var(--sidebar-primary)" : "var(--muted-foreground)" }}
-                        />
-                        <div style={{ minWidth: 0 }}>
-                          <div className={styles.projectName}>{project.name}</div>
-                          <div className={styles.projectMeta}>
-                            {project.papers.length} papers · {project.createdAt}
+                        <button
+                          className={`${styles.projectItem} ${isActive ? styles.active : ""}`}
+                          onClick={() => onSelectProject(project.id)}
+                          style={{ paddingRight: onDeleteProject && isHovered && projects.length > 1 ? 30 : 16 }}
+                        >
+                          <BookMarked
+                            size={12}
+                            className={styles.projectIcon}
+                            style={{ color: isActive ? "var(--sidebar-primary)" : "var(--muted-foreground)" }}
+                          />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div className={styles.projectName}>{project.name}</div>
+                            <div className={styles.projectMeta}>
+                              {project.papers.length} papers · {project.createdAt}
+                            </div>
                           </div>
-                        </div>
-                      </button>
+                        </button>
+                        {onDeleteProject && isHovered && projects.length > 1 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteProject(project.id);
+                            }}
+                            style={{
+                              position: "absolute",
+                              right: 8,
+                              color: "var(--destructive)",
+                              padding: 4,
+                              borderRadius: 4,
+                              background: "rgba(0,0,0,0.2)",
+                            }}
+                            title="Delete project"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </div>
                     );
                   })}
 
@@ -137,13 +192,69 @@ export default function LeftSidebar({
                 <>
                   <div className={styles.sectionLabel}>
                     <span className={styles.sectionTitle}>RECENT CHATS</span>
+                    {onNewChat && (
+                      <button className={styles.sectionAdd} onClick={onNewChat} title="New chat">
+                        <Plus size={11} />
+                      </button>
+                    )}
                   </div>
-                  {CHAT_HISTORY.map((chat) => (
-                    <button key={chat.id} className={styles.chatItem}>
-                      <span className={styles.chatLabel}>{chat.label}</span>
-                      <span className={styles.chatTime}>{chat.time}</span>
+
+                  {chatSessions.map((chat) => {
+                    const isActive = chat.id === activeChatId;
+                    const isHovered = hoveredChatId === chat.id;
+                    return (
+                      <div
+                        key={chat.id}
+                        onMouseEnter={() => setHoveredChatId(chat.id)}
+                        onMouseLeave={() => setHoveredChatId(null)}
+                        style={{ position: "relative", display: "flex", alignItems: "center" }}
+                      >
+                        <button
+                          className={styles.chatItem}
+                          onClick={() => onSelectChat && onSelectChat(chat.id)}
+                          style={{
+                            background: isActive ? "var(--sidebar-accent)" : "transparent",
+                            borderLeft: isActive ? "2px solid var(--sidebar-primary)" : "2px solid transparent",
+                            paddingRight: isHovered && onDeleteChat ? 30 : 16,
+                          }}
+                        >
+                          <span className={styles.chatLabel} style={{ color: isActive ? "var(--sidebar-foreground)" : "var(--muted-foreground)", fontWeight: isActive ? 500 : 400 }}>
+                            {chat.title}
+                          </span>
+                          <span className={styles.chatTime}>{chat.createdAt}</span>
+                        </button>
+                        {onDeleteChat && isHovered && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteChat(chat.id);
+                            }}
+                            style={{
+                              position: "absolute",
+                              right: 8,
+                              color: "var(--destructive)",
+                              padding: 4,
+                              borderRadius: 4,
+                              background: "rgba(0,0,0,0.2)",
+                            }}
+                            title="Delete chat session"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {onNewChat && (
+                    <button
+                      className={styles.addProjectBtn}
+                      onClick={onNewChat}
+                    >
+                      <Plus size={12} />
+                      New chat
                     </button>
-                  ))}
+                  )}
                 </>
               )}
             </div>
@@ -151,10 +262,19 @@ export default function LeftSidebar({
             {/* Footer */}
             <div className={styles.footer}>
               <div className={styles.avatar}>R</div>
-              <div style={{ minWidth: 0 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <div className={styles.userName}>Researcher</div>
                 <div className={styles.userPlan}>Free plan</div>
               </div>
+              {onToggleTheme && (
+                <button
+                  className={styles.themeToggleBtn}
+                  onClick={onToggleTheme}
+                  title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                >
+                  {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+                </button>
+              )}
             </div>
           </>
         )}
