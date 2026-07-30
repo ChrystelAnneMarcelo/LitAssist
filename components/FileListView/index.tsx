@@ -276,7 +276,7 @@ export default function FileListView({
                             color: isSel ? "var(--primary)" : "var(--muted-foreground)",
                           }}
                         >
-                          {isSel ? "Selected ✓" : "Select"}
+                          {isSel ? "Selected" : "Select"}
                         </button>
                       </div>
                       <h4

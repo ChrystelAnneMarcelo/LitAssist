@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, X, FileUp, CheckCircle, Loader2, Search, Link as LinkIcon, Sparkles } from "lucide-react";
+import { Upload, X, FileUp, CheckCircle, AlertCircle, Loader2, Search, Link as LinkIcon, Sparkles } from "lucide-react";
 import type { Paper } from "@/types";
 import styles from "./styles.module.css";
 
@@ -296,13 +296,13 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
               </div>
 
               {searchSuccess && (
-                <div style={{ fontSize: 11, color: "var(--primary)", fontFamily: "var(--font-mono)", background: "rgba(201,169,110,0.1)", padding: "6px 10px", borderRadius: "var(--radius)" }}>
-                  ✓ {searchSuccess}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--primary)", fontFamily: "var(--font-mono)", background: "rgba(201,169,110,0.1)", padding: "6px 10px", borderRadius: "var(--radius)" }}>
+                  <CheckCircle size={12} /> {searchSuccess}
                 </div>
               )}
               {searchError && (
-                <div style={{ fontSize: 11, color: "var(--destructive)", fontFamily: "var(--font-mono)", background: "rgba(192,57,43,0.1)", padding: "6px 10px", borderRadius: "var(--radius)" }}>
-                  ✕ {searchError}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--destructive)", fontFamily: "var(--font-mono)", background: "rgba(192,57,43,0.1)", padding: "6px 10px", borderRadius: "var(--radius)" }}>
+                  <AlertCircle size={12} /> {searchError}
                 </div>
               )}
               <p style={{ fontSize: 11, color: "var(--muted-foreground)", lineHeight: 1.4 }}>
