@@ -56,11 +56,11 @@ export default function PaperRow({
       {/* Authors */}
       <div className={styles.rowAuthors}>{paper.authors}</div>
 
-      {/* Date Added */}
-      <div className={styles.rowDate}>{paper.added}</div>
+      {/* Publication Year / Date */}
+      <div className={styles.rowDate}>{paper.year || paper.added}</div>
 
       {/* Row Actions on Hover */}
-      <div style={{ display: "flex", alignItems: "center", gap: 4, opacity: hover ? 1 : 0, transition: "opacity 0.15s" }}>
+      <div className={styles.rowActions} style={{ opacity: hover ? 1 : 0, transition: "opacity 0.15s" }}>
         {onOpenDetail && (
           <button
             onClick={(e) => {

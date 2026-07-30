@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   LayoutList, LayoutGrid, ArrowUpDown, Filter, Plus, FileText,
-  GitCompare, X, Sun, Moon, Search, Calendar, User, Tag
+  GitCompare, X, Sun, Moon, Search, Calendar, User, Tag, Square
 } from "lucide-react";
 import type { Project, Paper, CenterTab } from "@/types";
 import PaperRow from "./PaperRow";
@@ -44,7 +44,7 @@ export default function FileListView({
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [showFilterBar, setShowFilterBar] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortField, setSortField] = useState<"title" | "authors" | "added">("title");
+  const [sortField, setSortField] = useState<"title" | "authors" | "year" | "added">("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const selectedPapers = project.papers.filter((p) => selectedPaperIds.has(p.id));
@@ -184,17 +184,20 @@ export default function FileListView({
             <>
               {/* Column headers */}
               <div className={styles.columnHeader}>
-                <div style={{ width: 14, marginRight: 8, flexShrink: 0 }} />
-                <div style={{ width: 14, marginRight: 12, flexShrink: 0 }} />
+                <div className={styles.rowCheck} style={{ visibility: "hidden" }}>
+                  <Square size={14} />
+                </div>
+                <FileText size={14} className={styles.rowFileIcon} style={{ visibility: "hidden" }} />
                 <button className={styles.colName} onClick={() => toggleSort("title")}>
                   NAME {sortField === "title" && <ArrowUpDown size={10} />}
                 </button>
                 <button className={styles.colAuthors} onClick={() => toggleSort("authors")}>
                   AUTHORS {sortField === "authors" && <ArrowUpDown size={10} />}
                 </button>
-                <button className={styles.colAdded} onClick={() => toggleSort("added")}>
-                  ADDED {sortField === "added" && <ArrowUpDown size={10} />}
+                <button className={styles.colAdded} onClick={() => toggleSort("year")}>
+                  YEAR {sortField === "year" && <ArrowUpDown size={10} />}
                 </button>
+                <div className={styles.rowActionsSpacer} />
               </div>
 
               {/* Paper list */}
