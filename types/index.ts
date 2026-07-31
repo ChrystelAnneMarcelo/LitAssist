@@ -24,6 +24,12 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
+  // Observability metadata (from LangGraph agent pipeline)
+  trace?: string[];
+  tokens?: { prompt: number; completion: number; total: number };
+  reviewScore?: number | null;
+  latencyMs?: number;
+  retries?: number;
 }
 
 export interface ChatSession {
