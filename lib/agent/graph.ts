@@ -8,6 +8,7 @@ const AgentState = Annotation.Root({
   projectName: Annotation<string>(),
   papers: Annotation<Paper[]>(),
   paperContext: Annotation<string>(),
+  toolResults: Annotation<string>(),  // results from search tool
   draft: Annotation<string>(),
   reviewScore: Annotation<number>(),
   reviewFeedback: Annotation<string>(),
@@ -31,13 +32,111 @@ function getLLM() {
   });
 }
 
-// ─── Node 1: Extract ─────────────────────────────────────────
+// ─── Tool Definition: Crossref Paper Search ───────────────────
+// This is the agent's external tool — it calls Crossref to retrieve
+// additional scholarly metadata for papers not already in the user's collection.
+async function crossrefSearchTool(query: string): Promise<string> {
+  const encoded = encodeURIComponent(query);
+  const url = `https://api.crossref.org/works?query=${encoded}&rows=3&select=title,author,published,container-title,abstract,DOI`;
+
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "LitAssist/1.0 (mailto:research@litassist.app)" },
+    });
+    if (!res.ok) return `Tool Error: Crossref returned HTTP ${res.status}`;
+
+    const data = await res.json();
+    const items = data.message?.items ?? [];
+
+    if (!items.length) return "No results found via Crossref for this query.";
+
+    return items.map((item: any, i: number) => {
+      const title = item.title?.[0] ?? "Untitled";
+      const authors = item.author
+        ? item.author.slice(0, 3).map((a: any) => `${a.family}, ${a.given ?? ""}`.trim()).join("; ")
+        : "Unknown Authors";
+      const year = item.published?.["date-parts"]?.[0]?.[0] ?? "N/A";
+      const journal = (item["container-title"] as string[])?.[0] ?? "N/A";
+      const doi = item.DOI ?? "N/A";
+      const abstract = item.abstract
+        ? item.abstract.replace(/<[^>]+>/g, "").slice(0, 250) + "…"
+        : "No abstract available.";
+      return `[Tool Result ${i + 1}] "${title}" — ${authors} (${year})\nJournal: ${journal} | DOI: ${doi}\nAbstract: ${abstract}`;
+    }).join("\n\n---\n\n");
+  } catch (err: any) {
+    return `Tool Error: ${err.message}`;
+  }
+}
+
+// ─── Node 1: Planner ─────────────────────────────────────────
+// The Planner decides whether to call the search tool based on the question
+// and available papers. This is what makes LitAssist a true "agent" —
+// it autonomously decides when to invoke an external tool.
+async function plannerNode(state: typeof AgentState.State) {
+  const start = Date.now();
+  const papers = state.papers ?? [];
+  const q = state.question.toLowerCase();
+
+  // Heuristic: the agent decides to call the tool if:
+  // (a) no papers are loaded, or
+  // (b) the question asks for external references, latest work, or additional sources
+  const needsToolCall =
+    papers.length === 0 ||
+    q.includes("search") ||
+    q.includes("find") ||
+    q.includes("latest") ||
+    q.includes("recent") ||
+    q.includes("look up") ||
+    q.includes("additional") ||
+    q.includes("more papers");
+
+  const elapsed = Date.now() - start;
+
+  if (needsToolCall) {
+    // Extract a search query from the question (simplified)
+    const searchQuery = papers.length > 0
+      ? `${state.projectName} ${papers[0]?.tags?.[0] ?? ""}`
+      : state.question;
+
+    return {
+      trace: [`[PlannerNode +${elapsed}ms] Agent decided to invoke SearchTool for: "${searchQuery}"`],
+      toolResults: `__SEARCH__:${searchQuery}`,
+    };
+  }
+
+  return {
+    trace: [`[PlannerNode +${elapsed}ms] Agent decided to use existing ${papers.length} paper(s) — no tool call needed.`],
+    toolResults: "",
+  };
+}
+
+// ─── Node 2: Search Tool ──────────────────────────────────────
+// The agent's tool node. Only runs when the Planner decides to call it.
+async function searchToolNode(state: typeof AgentState.State) {
+  const start = Date.now();
+
+  if (!state.toolResults?.startsWith("__SEARCH__:")) {
+    return { trace: [`[SearchToolNode +0ms] Skipped — no tool call requested.`] };
+  }
+
+  const query = state.toolResults.replace("__SEARCH__:", "");
+  const results = await crossrefSearchTool(query);
+  const elapsed = Date.now() - start;
+
+  return {
+    toolResults: results,
+    trace: [`[SearchToolNode +${elapsed}ms] Crossref tool returned ${results.startsWith("No results") || results.startsWith("Tool Error") ? "0" : "up to 3"} result(s) for "${query}"`],
+  };
+}
+
+// ─── Node 3: Extract / Context Builder ───────────────────────
 async function extractNode(state: typeof AgentState.State) {
   const start = Date.now();
   const papers = state.papers ?? [];
 
-  const paperContext = papers.length > 0
-    ? papers.map((p, i) => `
+  // Build context from user-selected papers (context injection)
+  const selectedContext = papers.length > 0
+    ? "## User-Selected Papers (Project Context)\n\n" + papers.map((p, i) => `
 Paper ${i + 1}:
 Title: ${p.title}
 Authors: ${p.authors} (${p.year})
@@ -47,16 +146,28 @@ Abstract: ${p.abstract || "N/A"}
 Methodology: ${p.methodology || "N/A"}
 Key Findings: ${Array.isArray(p.keyFindings) ? p.keyFindings.join("; ") : "N/A"}
 `.trim()).join("\n---\n")
-    : `No specific papers selected. Context: ${state.projectName || "General RRL Analysis"}`;
+    : "No project papers selected by user.";
 
+  // Append tool results if the SearchTool ran
+  const toolContext =
+    state.toolResults &&
+    !state.toolResults.startsWith("__SEARCH__:") &&
+    !state.toolResults.startsWith("Tool Error")
+      ? "\n\n## Additional Papers Retrieved by Agent (Crossref Tool)\n\n" + state.toolResults
+      : "";
+
+  const paperContext = selectedContext + toolContext;
   const elapsed = Date.now() - start;
+
   return {
     paperContext,
-    trace: [`[ExtractNode +${elapsed}ms] Loaded ${papers.length} paper(s) into RAG context.`],
+    trace: [
+      `[ExtractNode +${elapsed}ms] Context built: ${papers.length} project paper(s)${toolContext ? " + Crossref tool results" : ""}.`,
+    ],
   };
 }
 
-// ─── Node 2: Synthesize ───────────────────────────────────────
+// ─── Node 4: Synthesize ───────────────────────────────────────
 async function synthesizeNode(state: typeof AgentState.State) {
   const start = Date.now();
   const retryNote = state.retries > 0
@@ -66,7 +177,6 @@ async function synthesizeNode(state: typeof AgentState.State) {
   const prompt = `You are LitAssist, an expert AI Literature Review (RRL) Analysis Assistant.
 Project: "${state.projectName || "Literature Review"}".
 
-Literature Context:
 ${state.paperContext}
 
 User Question: "${state.question}"
@@ -85,7 +195,6 @@ Write a highly academic, structured, and insightful RRL response. Use clear mark
       ? result.content
       : result.content.map((c: any) => ("text" in c ? c.text : "")).join("");
 
-    // Estimate token counts (Gemini API doesn't always return exact usage)
     promptTokens = Math.ceil(prompt.length / 4);
     completionTokens = Math.ceil(text.length / 4);
   } catch (err: any) {
@@ -105,11 +214,10 @@ Write a highly academic, structured, and insightful RRL response. Use clear mark
   };
 }
 
-// ─── Node 3: Review ───────────────────────────────────────────
+// ─── Node 5: Reviewer (LLM-as-judge) ─────────────────────────
 async function reviewNode(state: typeof AgentState.State) {
   const start = Date.now();
 
-  // If no API key, skip review scoring
   if (state.draft === "__FALLBACK__") {
     return {
       reviewScore: 100,
@@ -121,7 +229,7 @@ async function reviewNode(state: typeof AgentState.State) {
   const reviewPrompt = `You are a strict academic peer reviewer evaluating an AI-generated Literature Review (RRL) draft.
 
 User Question: "${state.question}"
-Paper Context Available: ${state.papers.length} papers
+Paper Context Available: ${state.papers.length} project papers${state.toolResults && !state.toolResults.startsWith("__SEARCH__:") ? " + Crossref tool results" : ""}
 Draft:
 ${state.draft}
 
@@ -163,12 +271,18 @@ Respond in this exact JSON format:
   return {
     reviewScore: score,
     reviewFeedback: feedback,
-    trace: [`[ReviewerNode +${elapsed}ms] Score: ${score}/100. ${approved ? "✓ Approved." : "✗ Needs revision: " + feedback}`],
+    retries: (state.retries || 0) + (score < 80 ? 1 : 0),
+    trace: [`[ReviewerNode +${elapsed}ms] Score: ${score}/100. ${approved ? "Approved." : "Needs revision: " + feedback}`],
   };
 }
 
-// ─── Conditional edge: retry or end ──────────────────────────
+// ─── Conditional routing ──────────────────────────────────────
 const MAX_RETRIES = 3;
+
+function plannerDecision(state: typeof AgentState.State): string {
+  // If planner set a search request, go to search tool first
+  return state.toolResults?.startsWith("__SEARCH__:") ? "searchTool" : "extract";
+}
 
 function shouldRetry(state: typeof AgentState.State): string {
   if (state.draft === "__FALLBACK__") return "end";
@@ -179,10 +293,18 @@ function shouldRetry(state: typeof AgentState.State): string {
 // ─── Build graph ─────────────────────────────────────────────
 function buildGraph() {
   const graph = new StateGraph(AgentState)
+    .addNode("planner", plannerNode)
+    .addNode("searchTool", searchToolNode)
     .addNode("extract", extractNode)
     .addNode("synthesize", synthesizeNode)
     .addNode("review", reviewNode)
-    .addEdge("__start__", "extract")
+    .addEdge("__start__", "planner")
+    // Planner conditionally routes to searchTool or directly to extract
+    .addConditionalEdges("planner", plannerDecision, {
+      searchTool: "searchTool",
+      extract: "extract",
+    })
+    .addEdge("searchTool", "extract")
     .addEdge("extract", "synthesize")
     .addEdge("synthesize", "review")
     .addConditionalEdges("review", shouldRetry, {
@@ -207,6 +329,7 @@ export async function runLitAssistGraph(input: {
     papers: input.papers,
     projectName: input.projectName || "Literature Review",
     paperContext: "",
+    toolResults: "",
     draft: "",
     reviewScore: 0,
     reviewFeedback: "",
