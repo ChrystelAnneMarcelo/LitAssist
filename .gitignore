@@ -34,3 +34,15 @@ next-env.d.ts
 *.pem
 .vscode/
 .idea/
+
+# Python backend
+backend/.env
+backend/__pycache__/
+backend/agent/__pycache__/
+backend/*.pyc
+backend/venv/
+backend/.venv/
+__pycache__/
+*.pyc
+*.pyo
+
