@@ -59,23 +59,14 @@ LitAssist uses a **LangGraph `StateGraph`** with 5 nodes that autonomously plans
 - **Context Injection, not Embedding RAG**: The `ExtractNode` formats user-selected papers and Crossref tool results into the prompt. Users explicitly choose which papers to analyze — an intentional choice for transparency in academic writing (no vector DB required).
 - **Real Tool Use**: The `PlannerNode` autonomously decides when to call the Crossref API, satisfying the course definition of an agent: *model + planning + tools + orchestration*.
 
-### Capstone Rubric Coverage
-
-| Requirement | Must-Have | Stretch Goal |
-|---|---|---|
-| Framework | Python LangGraph `StateGraph` (5 nodes) | Planner node with autonomous tool decision |
-| Guardrails | Max 3 retries + Pydantic v2 input validation | ReviewerNode LLM-as-judge scoring |
-| Observability | Per-node trace log with ms timing | Token count + latency per run in UI |
-| Cost & Quality | Tokens + latency returned per message | Review score badge in chat UI |
-
 ## Features
 
-- **DOI / Title Metadata Search** — Fetch paper metadata via Crossref API (also used as agent tool)
-- **PDF & Document Upload** — Drag & drop `.pdf`, `.txt`, `.md` files to auto-extract abstracts and findings
-- **Paper Comparison Matrix** — Compare up to 4 selected papers across 6 RRL dimensions
-- **LangGraph AI Chatbot** — 5-node Python agent pipeline with per-node trace log, token metrics, review score badge, and retry count
-- **Light & Dark Mode** — Theme toggle with local storage persistence
-- **Project & Chat History** — Persistent multi-project organization with named chat sessions
+- **DOI / Title Metadata Search**: Fetch paper metadata via Crossref API (also used as agent tool)
+- **PDF & Document Upload**: Drag & drop `.pdf`, `.txt`, `.md` files to auto-extract abstracts and findings
+- **Paper Comparison Matrix**: Compare up to 4 selected papers across 6 RRL dimensions
+- **LangGraph AI Chatbot**: 5-node Python agent pipeline with per-node trace log, token metrics, review score badge, and retry count
+- **Light & Dark Mode**: Theme toggle with local storage persistence
+- **Project & Chat History**: Persistent multi-project organization with named chat sessions
 
 ## Getting Started
 
