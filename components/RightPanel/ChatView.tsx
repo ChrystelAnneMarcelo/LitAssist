@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, Loader2, RotateCcw, Copy, Check, ChevronDown } from "lucide-react";
+import { Send, Sparkles, Loader2, RotateCcw, Copy, Check, ChevronDown, ChevronUp, Activity } from "lucide-react";
 import type { Project, Paper, ChatSession, ChatMessage } from "@/types";
 import styles from "./styles.module.css";
 
@@ -214,7 +214,14 @@ export default function ChatView({
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [openTraces, setOpenTraces] = useState<Set<string>>(new Set());
   const endRef = useRef<HTMLDivElement>(null);
+
+  const toggleTrace = (id: string) => setOpenTraces(prev => {
+    const n = new Set(prev);
+    n.has(id) ? n.delete(id) : n.add(id);
+    return n;
+  });
 
   const messages = activeChatSession?.messages || [];
 
@@ -243,10 +250,14 @@ export default function ChatView({
     setIsTyping(true);
 
     let aiContent = "";
+    let agentTrace: string[] = [];
+    let agentTokens: ChatMessage["tokens"] | undefined;
+    let agentReviewScore: number | null = null;
+    let agentLatencyMs: number | undefined;
+    let agentRetries: number | undefined;
     const activePapers = selectedPapers.length > 0 ? selectedPapers : project.papers;
 
     try {
-      const userApiKey = localStorage.getItem("litassist-gemini-key") || "";
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -254,15 +265,17 @@ export default function ChatView({
           question: text.trim(),
           papers: activePapers,
           projectName: project.name,
-          userApiKey,
         }),
       });
 
       if (res.ok) {
         const data = await res.json();
-        if (data.text) {
-          aiContent = data.text;
-        }
+        if (data.text) aiContent = data.text;
+        if (data.trace) agentTrace = data.trace;
+        if (data.tokens) agentTokens = data.tokens;
+        if (data.reviewScore != null) agentReviewScore = data.reviewScore;
+        if (data.latencyMs != null) agentLatencyMs = data.latencyMs;
+        if (data.retries != null) agentRetries = data.retries;
       }
     } catch (e) {
       console.warn("API route error, falling back to synthesis engine", e);
@@ -279,6 +292,11 @@ export default function ChatView({
       role: "assistant",
       content: aiContent,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      trace: agentTrace.length > 0 ? agentTrace : undefined,
+      tokens: agentTokens,
+      reviewScore: agentReviewScore,
+      latencyMs: agentLatencyMs,
+      retries: agentRetries,
     };
 
     const updatedWithAi = [...updatedWithUser, aiMsg];
@@ -355,14 +373,82 @@ export default function ChatView({
                 : <div className={styles.bubbleContent}>{renderContent(msg.content)}</div>}
             </div>
             {msg.role === "assistant" && (
-              <div className={styles.msgActions}>
-                <button onClick={() => copyMsg(msg.id, msg.content)} className={styles.copyMsgBtn}>
-                  {copiedId === msg.id
-                    ? <Check size={10} style={{ color: "var(--primary)" }} />
-                    : <Copy size={10} />}
-                  {copiedId === msg.id ? "Copied" : "Copy"}
-                </button>
-              </div>
+              <>
+                <div className={styles.msgActions}>
+                  <button onClick={() => copyMsg(msg.id, msg.content)} className={styles.copyMsgBtn}>
+                    {copiedId === msg.id
+                      ? <Check size={10} style={{ color: "var(--primary)" }} />
+                      : <Copy size={10} />}
+                    {copiedId === msg.id ? "Copied" : "Copy"}
+                  </button>
+                  {(msg.tokens || msg.latencyMs != null || msg.reviewScore != null) && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
+                      {msg.latencyMs != null && (
+                        <span style={{ fontSize: 10, color: "var(--muted-foreground)", fontFamily: "var(--font-mono)" }}>
+                          {msg.latencyMs}ms
+                        </span>
+                      )}
+                      {msg.tokens && (
+                        <span style={{ fontSize: 10, color: "var(--muted-foreground)", fontFamily: "var(--font-mono)" }}>
+                          {msg.tokens.total} tokens
+                        </span>
+                      )}
+                      {msg.reviewScore != null && (
+                        <span style={{
+                          fontSize: 10,
+                          fontFamily: "var(--font-mono)",
+                          color: msg.reviewScore >= 80 ? "#7ab8a4" : "#c97a7a",
+                          background: msg.reviewScore >= 80 ? "rgba(122,184,164,0.1)" : "rgba(201,122,122,0.1)",
+                          padding: "1px 6px",
+                          borderRadius: 4,
+                        }}>
+                          Score {msg.reviewScore}/100
+                        </span>
+                      )}
+                      {msg.retries != null && msg.retries > 0 && (
+                        <span style={{ fontSize: 10, color: "#c9a96e", fontFamily: "var(--font-mono)" }}>
+                          {msg.retries} retr{msg.retries === 1 ? "y" : "ies"}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {msg.trace && msg.trace.length > 0 && (
+                    <button
+                      onClick={() => toggleTrace(msg.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontSize: 10,
+                        color: "var(--muted-foreground)",
+                        fontFamily: "var(--font-mono)",
+                        marginLeft: 8,
+                      }}
+                    >
+                      <Activity size={10} />
+                      Trace
+                      {openTraces.has(msg.id) ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                    </button>
+                  )}
+                </div>
+                {msg.trace && msg.trace.length > 0 && openTraces.has(msg.id) && (
+                  <div style={{
+                    marginTop: 6,
+                    marginLeft: 8,
+                    borderLeft: "2px solid var(--border)",
+                    paddingLeft: 12,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                  }}>
+                    {msg.trace.map((step, i) => (
+                      <div key={i} style={{ fontSize: 11, color: "var(--muted-foreground)", fontFamily: "var(--font-mono)", lineHeight: 1.5 }}>
+                        {step}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         ))}
