@@ -1,1 +1,0 @@
-# LitAssist Python Backend

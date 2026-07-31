@@ -1,45 +1,49 @@
 import { NextResponse } from "next/server";
-
-/**
- * Thin proxy → Python FastAPI backend (http://localhost:8000/chat)
- *
- * To switch to your team's production API, set PYTHON_BACKEND_URL in .env.local:
- *   PYTHON_BACKEND_URL=https://your-deployed-backend.com
- */
-const BACKEND_URL = process.env.PYTHON_BACKEND_URL || "http://localhost:8000";
+import { ChatInputSchema } from "@/lib/agent/schemas";
+import { runLitAssistGraph } from "@/lib/agent/graph";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const res = await fetch(`${BACKEND_URL}/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      console.error("Python backend error:", err);
-      return NextResponse.json({ text: null, error: err }, { status: res.status });
+    // ─── Pydantic-style input validation (Zod Guardrail) ───────
+    const parsed = ChatInputSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { text: null, error: "Invalid input: " + parsed.error.message },
+        { status: 400 }
+      );
     }
 
-    const data = await res.json();
+    const { question, papers, projectName } = parsed.data;
 
-    // Normalize snake_case → camelCase for the frontend
+    // ─── Run LangGraph 5-Node Agent Pipeline ──────────────────
+    //   PlannerNode → SearchToolNode → ExtractNode → SynthesizeNode → ReviewerNode
+    const result = await runLitAssistGraph({ question, papers, projectName });
+
+    if (result.usedFallback) {
+      // No API key — signal frontend to use offline synthesis engine
+      return NextResponse.json({
+        text: null,
+        trace: result.trace,
+        tokens: result.tokens,
+        latencyMs: result.latencyMs,
+        reviewScore: null,
+        retries: result.retries,
+      });
+    }
+
     return NextResponse.json({
-      text: data.text ?? null,
-      trace: data.trace ?? [],
-      tokens: data.tokens ?? { prompt: 0, completion: 0, total: 0 },
-      latencyMs: data.latency_ms ?? 0,
-      reviewScore: data.review_score ?? null,
-      retries: data.retries ?? 0,
-      usedFallback: data.used_fallback ?? false,
+      text: result.text,
+      trace: result.trace,
+      tokens: result.tokens,
+      latencyMs: result.latencyMs,
+      reviewScore: result.reviewScore,
+      retries: result.retries,
     });
 
   } catch (err: any) {
-    // Python backend is not running — signal frontend to use offline synthesis
-    console.warn("Python backend unreachable, falling back to offline mode:", err.message);
-    return NextResponse.json({ text: null, error: "backend_unreachable" });
+    console.error("LangGraph agent error:", err);
+    return NextResponse.json({ text: null, error: err.message });
   }
 }
