@@ -42,18 +42,19 @@ class AgentState(TypedDict):
     trace: Annotated[list[str], merge_lists]
     prompt_tokens: int
     completion_tokens: int
+    model_name: str
 
 
 MAX_RETRIES = 3
 
 
 # ─── Helper: get LLM ──────────────────────────────────────────
-def get_llm() -> ChatGoogleGenerativeAI:
+def get_llm(model_name: str = "gemini-1.5-flash") -> ChatGoogleGenerativeAI:
     api_key = os.getenv("API_KEY") or os.getenv("GEMINI_API_KEY", "")
     if not api_key:
         raise ValueError("NO_API_KEY")
     return ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model=model_name,
         google_api_key=api_key,
         temperature=0.4,
     )
@@ -80,7 +81,7 @@ async def crossref_search_tool(query: str) -> str:
                     "rows": "3",
                     "select": "title,author,published,container-title,abstract,DOI",
                 },
-                headers={"User-Agent": "LitAssist/1.0 (mailto:research@litassist.app)"},
+                headers={"User-Agent": "LitAssist/1.0 (mailto:chrystel_anne_marcelo@dlsu.edu.ph)"},
             )
             if resp.status_code != 200:
                 return f"Tool Error: Crossref returned HTTP {resp.status_code}"
@@ -127,7 +128,7 @@ async def semantic_scholar_search_tool(query: str) -> str:
                     "limit": "3",
                     "fields": "title,authors,year,abstract,tldr",
                 },
-                headers={"User-Agent": "LitAssist/1.0 (mailto:research@litassist.app)"},
+                headers={"User-Agent": "LitAssist/1.0 (mailto:chrystel_anne_marcelo@dlsu.edu.ph)"},
             )
             if resp.status_code != 200:
                 return f"Tool Error: Semantic Scholar returned HTTP {resp.status_code}"
@@ -172,7 +173,7 @@ async def arxiv_search_tool(query: str) -> str:
                     "max_results": "3",
                     "sortBy": "relevance",
                 },
-                headers={"User-Agent": "LitAssist/1.0 (mailto:research@litassist.app)"},
+                headers={"User-Agent": "LitAssist/1.0 (mailto:chrystel_anne_marcelo@dlsu.edu.ph)"},
             )
             if resp.status_code != 200:
                 return f"Tool Error: arXiv returned HTTP {resp.status_code}"
@@ -222,7 +223,7 @@ async def pubmed_search_tool(query: str) -> str:
                     "pageSize": "3",
                     "format": "json",
                 },
-                headers={"User-Agent": "LitAssist/1.0 (mailto:research@litassist.app)"},
+                headers={"User-Agent": "LitAssist/1.0 (mailto:chrystel_anne_marcelo@dlsu.edu.ph)"},
             )
             if resp.status_code != 200:
                 return f"Tool Error: Europe PMC returned HTTP {resp.status_code}"
@@ -265,8 +266,8 @@ async def openalex_search_tool(query: str) -> str:
                     "select": "title,authorships,publication_year,primary_location,abstract_inverted_index",
                 },
                 headers={
-                    "User-Agent": "LitAssist/1.0 (mailto:research@litassist.app)",
-                    "mailto": "research@litassist.app",
+                    "User-Agent": "LitAssist/1.0 (mailto:chrystel_anne_marcelo@dlsu.edu.ph)",
+                    "mailto": "chrystel_anne_marcelo@dlsu.edu.ph",
                 },
             )
             if resp.status_code != 200:
@@ -476,8 +477,9 @@ async def synthesize_node(state: AgentState) -> dict:
     prompt_tokens = 0
     completion_tokens = 0
 
+    model = state.get("model_name", "gemini-1.5-flash")
     try:
-        llm = get_llm()
+        llm = get_llm(model)
         result = llm.invoke(prompt)
         text = result.content if isinstance(result.content, str) else str(result.content)
         prompt_tokens = math.ceil(len(prompt) / 4)
@@ -495,7 +497,7 @@ async def synthesize_node(state: AgentState) -> dict:
         "draft": text,
         "prompt_tokens": state.get("prompt_tokens", 0) + prompt_tokens,
         "completion_tokens": state.get("completion_tokens", 0) + completion_tokens,
-        "trace": [f"[SynthesizeNode +{elapsed}ms] Generated draft (retry #{state.get('retries', 0)}, ~{total_tokens} tokens)."],
+        "trace": [f"[SynthesizeNode +{elapsed}ms] Generated draft via {model} (retry #{state.get('retries', 0)}, ~{total_tokens} tokens)."],
     }
 
 
@@ -537,8 +539,9 @@ async def review_node(state: AgentState) -> dict:
     feedback = "Draft meets academic standards."
     approved = True
 
+    model = state.get("model_name", "gemini-1.5-flash")
     try:
-        llm = get_llm()
+        llm = get_llm(model)
         result = llm.invoke(review_prompt)
         raw = result.content if isinstance(result.content, str) else str(result.content)
         match = re.search(r"\{[\s\S]*\}", raw)
@@ -605,6 +608,7 @@ async def run_litassist_graph(
     question: str,
     papers: list[dict],
     project_name: str = "Literature Review",
+    model_name: str = "gemini-1.5-flash",
 ) -> dict:
     """Entry point called by the FastAPI route."""
     start_time = time.time()
@@ -623,6 +627,7 @@ async def run_litassist_graph(
         "trace": [],
         "prompt_tokens": 0,
         "completion_tokens": 0,
+        "model_name": model_name,
     })
 
     latency_ms = int((time.time() - start_time) * 1000)
@@ -642,4 +647,5 @@ async def run_litassist_graph(
         "latency_ms": latency_ms,
         "retries": result.get("retries", 0),
         "used_fallback": used_fallback,
+        "model_name": model_name,
     }

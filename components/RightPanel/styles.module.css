@@ -312,6 +312,48 @@
   text-align: center;
 }
 
+/* ─── Model selector ── */
+.modelSelector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.modelSelectorLabel {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.modelSelect {
+  flex: 1;
+  background: var(--input-background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--foreground);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 3px 6px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.modelSelect:hover { border-color: var(--primary); }
+.modelSelect:focus { outline: none; border-color: var(--primary); }
+.modelSelect:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.modelBadge {
+  font-size: 9px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  background: rgba(139, 156, 244, 0.1);
+  border: 1px solid rgba(139, 156, 244, 0.15);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 2px;
+}
+
 /* ─── Notes tab ── */
 .notesHeader {
   display: flex;

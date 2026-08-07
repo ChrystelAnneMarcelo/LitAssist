@@ -30,6 +30,7 @@ export interface ChatMessage {
   reviewScore?: number | null;
   latencyMs?: number;
   retries?: number;
+  modelName?: string;
 }
 
 export interface ChatSession {

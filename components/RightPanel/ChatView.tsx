@@ -21,6 +21,14 @@ const SUGGESTIONS = [
   "Which papers are most relevant?",
 ];
 
+const MODELS = [
+  { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash", note: "Fastest" },
+  { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash", note: "Latest" },
+  { id: "gemini-1.5-pro",   label: "Gemini 1.5 Pro",   note: "Deepest" },
+] as const;
+
+type ModelId = typeof MODELS[number]["id"];
+
 function generateFallbackResponse(question: string, papers: Paper[], project: Project): string {
   const targetPapers = papers.length > 0 ? papers : project.papers;
   const count = targetPapers.length;
@@ -215,6 +223,7 @@ export default function ChatView({
   const [isTyping, setIsTyping] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [openTraces, setOpenTraces] = useState<Set<string>>(new Set());
+  const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash");
   const endRef = useRef<HTMLDivElement>(null);
 
   const toggleTrace = (id: string) => setOpenTraces(prev => {
@@ -255,6 +264,7 @@ export default function ChatView({
     let agentReviewScore: number | null = null;
     let agentLatencyMs: number | undefined;
     let agentRetries: number | undefined;
+    let agentModelName: string | undefined;
     const activePapers = selectedPapers.length > 0 ? selectedPapers : project.papers;
 
     try {
@@ -265,6 +275,7 @@ export default function ChatView({
           question: text.trim(),
           papers: activePapers,
           projectName: project.name,
+          modelName: selectedModel,
         }),
       });
 
@@ -276,6 +287,7 @@ export default function ChatView({
         if (data.reviewScore != null) agentReviewScore = data.reviewScore;
         if (data.latencyMs != null) agentLatencyMs = data.latencyMs;
         if (data.retries != null) agentRetries = data.retries;
+        if (data.modelName) agentModelName = data.modelName;
       }
     } catch (e) {
       console.warn("API route error, falling back to synthesis engine", e);
@@ -297,6 +309,7 @@ export default function ChatView({
       reviewScore: agentReviewScore,
       latencyMs: agentLatencyMs,
       retries: agentRetries,
+      modelName: agentModelName ?? (aiContent !== "" ? selectedModel : undefined),
     };
 
     const updatedWithAi = [...updatedWithUser, aiMsg];
@@ -365,6 +378,11 @@ export default function ChatView({
                   <Sparkles size={9} style={{ color: "var(--primary)" }} />
                 </div>
                 <span className={styles.authorName}>LitAssist AI</span>
+                {msg.modelName && (
+                  <span className={styles.modelBadge}>
+                    {msg.modelName.replace("gemini-", "")}
+                  </span>
+                )}
               </div>
             )}
             <div className={`${styles.bubble} ${msg.role === "user" ? styles.user : styles.assistant}`}>
@@ -473,6 +491,20 @@ export default function ChatView({
 
       {/* Input */}
       <div className={styles.inputArea}>
+        <div className={styles.modelSelector}>
+          <span className={styles.modelSelectorLabel}>Model</span>
+          <select
+            id="model-selector"
+            className={styles.modelSelect}
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value as ModelId)}
+            disabled={isTyping}
+          >
+            {MODELS.map((m) => (
+              <option key={m.id} value={m.id}>{m.label} · {m.note}</option>
+            ))}
+          </select>
+        </div>
         {messages.length > 0 && onNewChat && (
           <button className={styles.newChatBtn} onClick={onNewChat}>
             <RotateCcw size={9} /> New chat
