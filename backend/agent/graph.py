@@ -55,19 +55,19 @@ MAX_RETRIES = 3
 
 
 VALID_MODELS = {
-    "gemini-2.5-flash",
-    "gemini-3.5-flash",
-    "gemini-3.6-flash",
+    "gemini-1.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-pro",
     "gemini-flash-latest",
 }
 
 
 # ─── Helper: get LLM ──────────────────────────────────────────
-def get_llm(model_name: str = "gemini-2.5-flash") -> ChatGoogleGenerativeAI:
+def get_llm(model_name: str = "gemini-1.5-flash") -> ChatGoogleGenerativeAI:
     api_key = os.getenv("API_KEY") or os.getenv("GEMINI_API_KEY", "")
     if not api_key:
         raise ValueError("NO_API_KEY")
-    target_model = model_name if model_name in VALID_MODELS else "gemini-2.5-flash"
+    target_model = model_name if model_name in VALID_MODELS else "gemini-1.5-flash"
     return ChatGoogleGenerativeAI(
         model=target_model,
         google_api_key=api_key,
@@ -727,15 +727,15 @@ def should_retry(state: AgentState) -> str:
 # ─── Routing: router → planner | extract | review ────────────
 def router_decision(state: AgentState) -> str:
     intent = state.get("intent", "general")
-    papers = state.get("papers", [])
+    q = state.get("question", "").lower()
     # review_only: user pasted a draft — skip straight to ReviewerNode
     if intent == "review_only":
         return "review"
-    # Summarize with existing papers: skip search, go straight to ExtractNode
-    if intent == "summarize" and len(papers) > 0:
-        return "extract"
-    # Analyze or general: full pipeline through PlannerNode
-    return "planner"
+    # If user explicitly asked for web search or looking up new papers
+    if any(kw in q for kw in ["search", "find", "latest", "recent", "look up", "additional", "more paper"]):
+        return "planner"
+    # Standard paper chat, scoring, or synthesis: go straight to Extract -> Synthesize
+    return "extract"
 
 
 # ─── Build and compile graph ───────────────────────────────────
@@ -761,7 +761,12 @@ def build_graph():
     })
     graph.add_edge("searchTool", "extract")
     graph.add_edge("extract", "synthesize")
-    graph.add_edge("synthesize", "review")
+
+    # Direct finish after synthesize for single-pass response, or route to review if requested
+    graph.add_conditional_edges("synthesize", lambda s: "review" if s.get("intent") == "review_only" else "end", {
+        "review": "review",
+        "end": END,
+    })
     graph.add_conditional_edges("review", should_retry, {
         "synthesize": "synthesize",
         "end": END,
@@ -776,7 +781,7 @@ async def run_litassist_graph(
     papers: list[dict],
     project_name: str = "Literature Review",
     project_description: str = "",
-    model_name: str = "gemini-2.5-flash",
+    model_name: str = "gemini-1.5-flash",
 ) -> dict:
     """Entry point called by the FastAPI route with multi-model failover."""
     start_time = time.time()
@@ -810,9 +815,9 @@ async def run_litassist_graph(
     latency_ms = int((time.time() - start_time) * 1000)
 
     model_labels = {
-        "gemini-2.5-flash": "Gemini 2.5 Flash",
-        "gemini-3.5-flash": "Gemini 3.5 Flash",
-        "gemini-3.6-flash": "Gemini 3.6 Flash",
+        "gemini-1.5-flash": "Gemini 1.5 Flash",
+        "gemini-2.0-flash": "Gemini 2.0 Flash",
+        "gemini-1.5-pro": "Gemini 1.5 Pro",
         "gemini-flash-latest": "Gemini Flash Auto",
     }
     label = model_labels.get(model_name, model_name)
