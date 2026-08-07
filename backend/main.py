@@ -262,6 +262,13 @@ async def analyze_abstract(body: AnalyzeInput):
     methodology_fallback = sentences[0] if sentences else clean_abstract[:200]
     findings_fallback = sentences[1:4] if len(sentences) > 1 else [clean_abstract[:150]]
 
+    return {
+        "clean_abstract": clean_abstract,
+        "methodology": methodology_fallback,
+        "key_findings": findings_fallback,
+    }
+
+
 class DoiInput(BaseModel):
     doi: str
 
