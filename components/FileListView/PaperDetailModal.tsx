@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, BookOpen, Target, FlaskConical, Copy, Check, Calendar, User, Tag, BookMarked } from "lucide-react";
+import { X, BookOpen, Target, FlaskConical, Copy, Check, Calendar, User, Tag, BookMarked, ExternalLink, FileText } from "lucide-react";
 import type { Paper } from "@/types";
 import styles from "./styles.module.css";
 
@@ -13,8 +13,23 @@ interface PaperDetailModalProps {
 export default function PaperDetailModal({ paper, onClose }: PaperDetailModalProps) {
   const [copied, setCopied] = useState(false);
 
+  const formatApaAuthors = (authors: string) => {
+    if (!authors || authors === "Unknown Author") return "Unknown Author";
+    if (authors.includes("et al.")) return authors;
+    const names = authors.split(/,\s*/).map((n) => n.trim()).filter(Boolean);
+    if (names.length > 2) {
+      const first = names[0];
+      const lastName = first.includes(" ") ? first.split(" ").pop() : first;
+      return `${lastName}, et al.`;
+    }
+    return authors;
+  };
+
+  const formattedAuthors = formatApaAuthors(paper.authors);
+  const cleanTitle = paper.title.endsWith(".") ? paper.title : `${paper.title}.`;
+
   const handleCopyCitation = () => {
-    const citation = `${paper.authors} (${paper.year}). ${paper.title}. ${paper.journal ? `${paper.journal}.` : ""}`;
+    const citation = `${formattedAuthors} (${paper.year}). ${cleanTitle} ${paper.journal || ""}`.trim();
     navigator.clipboard.writeText(citation);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -92,7 +107,8 @@ export default function PaperDetailModal({ paper, onClose }: PaperDetailModalPro
           >
             <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--foreground)", flex: 1 }}>
               <span style={{ color: "var(--muted-foreground)" }}>APA Citation: </span>
-              {paper.authors} ({paper.year}). {paper.title}. {paper.journal}
+              {formattedAuthors} ({paper.year}). {cleanTitle}{" "}
+              {paper.journal && <em style={{ fontStyle: "italic" }}>{paper.journal}</em>}
             </div>
             <button
               onClick={handleCopyCitation}
@@ -112,6 +128,58 @@ export default function PaperDetailModal({ paper, onClose }: PaperDetailModalPro
               {copied ? "Copied" : "Copy APA"}
             </button>
           </div>
+
+          {/* Online Links (DOI & PDF) */}
+          {(paper.url || paper.doi || paper.pdfUrl) && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              {(paper.url || paper.doi) && (
+                <a
+                  href={paper.url || `https://doi.org/${paper.doi}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 12px",
+                    borderRadius: "var(--radius)",
+                    background: "rgba(201,169,110,0.1)",
+                    border: "1px solid rgba(201,169,110,0.25)",
+                    fontSize: 11,
+                    fontFamily: "var(--font-mono)",
+                    color: "var(--primary)",
+                    textDecoration: "none",
+                    fontWeight: 500,
+                  }}
+                >
+                  <ExternalLink size={12} /> View Paper Online {paper.doi ? `(DOI: ${paper.doi})` : ""}
+                </a>
+              )}
+              {paper.pdfUrl && (
+                <a
+                  href={paper.pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 12px",
+                    borderRadius: "var(--radius)",
+                    background: "rgba(122,184,164,0.1)",
+                    border: "1px solid rgba(122,184,164,0.25)",
+                    fontSize: 11,
+                    fontFamily: "var(--font-mono)",
+                    color: "#7ab8a4",
+                    textDecoration: "none",
+                    fontWeight: 500,
+                  }}
+                >
+                  <FileText size={12} /> Direct Open-Access PDF
+                </a>
+              )}
+            </div>
+          )}
 
           {/* Abstract */}
           {paper.abstract && (

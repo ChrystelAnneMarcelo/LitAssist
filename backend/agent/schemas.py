@@ -25,6 +25,7 @@ class ChatInput(BaseModel):
     question: str = Field(..., min_length=1, description="Cannot be empty")
     papers: list[Paper] = Field(default_factory=list)
     projectName: str = "Literature Review"
+    modelName: str = Field(default="gemini-1.5-flash", description="Gemini model ID for synthesis and review")
 
 
 # ─── Node output models ─────────────────────────────────────────
@@ -50,3 +51,4 @@ class AgentResponse(BaseModel):
     latency_ms: int = 0
     retries: int = 0
     used_fallback: bool = False
+    model_name: str = "gemini-1.5-flash"

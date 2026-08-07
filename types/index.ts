@@ -9,6 +9,9 @@ export interface Paper {
   year: string;
   journal: string;
   tags: string[];
+  doi?: string;
+  url?: string;
+  pdfUrl?: string;
 }
 
 export interface Project {
@@ -30,6 +33,7 @@ export interface ChatMessage {
   reviewScore?: number | null;
   latencyMs?: number;
   retries?: number;
+  modelName?: string;
 }
 
 export interface ChatSession {
