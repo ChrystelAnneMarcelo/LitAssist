@@ -35,6 +35,7 @@ def merge_lists(a: list, b: list) -> list:
 class AgentState(TypedDict):
     question: str
     project_name: str
+    project_description: str
     papers: list[dict]
     paper_context: str
     tool_results: str
@@ -501,11 +502,17 @@ async def extract_node(state: AgentState) -> dict:
     if tool_results and not tool_results.startswith("__SEARCH__:") and not tool_results.startswith("Tool Error"):
         tool_context = "\n\n## Additional Papers Retrieved by Agent (Multi-Database Search)\n\n" + tool_results
 
-    elapsed = int((time.time() - start) * 1000)
-    tool_note = " + multi-database search results" if tool_context else ""
+    # Build project header context
+    proj_name = state.get("project_name", "Literature Review")
+    proj_desc = state.get("project_description", "").strip()
+    scope_header = f"## Project Context & Research Scope\nProject: {proj_name}\n"
+    if proj_desc:
+        scope_header += f"Research Scope / Question: {proj_desc}\n\n"
+    else:
+        scope_header += "\n"
 
     return {
-        "paper_context": selected_context + tool_context,
+        "paper_context": scope_header + selected_context + tool_context,
         "trace": [f"[ExtractNode +{elapsed}ms] Context built: {len(papers)} project paper(s){tool_note}."],
     }
 
@@ -524,17 +531,24 @@ async def synthesize_node(state: AgentState) -> dict:
             "Please improve accordingly."
         )
 
+    proj_name = state.get("project_name", "Literature Review")
+    proj_desc = state.get("project_description", "").strip()
+
     # Intent-aware prompt shaping
-    if intent == "analyze":
+    if intent == "analyze" or any(kw in state['question'].lower() for kw in ["score", "rate", "appraise", "evaluate", "grade"]):
         task_instruction = (
-            "Perform a structured analytical breakdown: "
-            "compare methodologies, evaluate findings, score relevance, and identify research gaps. "
-            "Use structured headers, comparison tables where applicable, and cite all papers."
+            "Perform a detailed paper appraisal and analytical breakdown.\n"
+            f"If evaluating/scoring specific paper(s) for the project topic '{proj_name}'"
+            + (f" (Scope: {proj_desc})" if proj_desc else "") + " :\n"
+            "1. **Topic Relevance Score (0–100%)**: Evaluate how directly the paper's focus aligns with the research scope.\n"
+            "2. **Methodological Rigor Score (0–100%)**: Assess dataset quality, empirical design, algorithms, and validation metrics.\n"
+            "3. **Overall RRL Score (0–100%)**: Provide a final score with key strengths, limitations, and RRL contribution.\n"
+            "Use clear markdown headers and bullet points."
         )
     elif intent == "summarize":
         task_instruction = (
             "Provide a clear, concise, and academic synthesis summary. "
-            "Capture abstract, key contributions, methodology, and relevance of each paper. "
+            "Capture abstract, key contributions, methodology, and relevance of each paper to the project topic. "
             "Use numbered sections per paper and cite author names."
         )
     else:
@@ -546,8 +560,9 @@ async def synthesize_node(state: AgentState) -> dict:
 
     prompt = (
         f"You are LitAssist, an expert AI Literature Review (RRL) Analysis Assistant "
-        f"for the project \"{state.get('project_name', 'Literature Review')}\".\n"
-        f"IMPORTANT: Begin your response directly with the answer. "
+        f"for the project \"{proj_name}\".\n"
+        + (f"Project Scope / Topic Description: \"{proj_desc}\"\n" if proj_desc else "")
+        + f"IMPORTANT: Begin your response directly with the answer. "
         f"Do NOT include any preamble, report header, metadata block, or repetition of these instructions.\n\n"
         f"{state.get('paper_context', '')}\n\n"
         f"User Question: \"{state['question']}\"\n"
@@ -749,6 +764,7 @@ async def run_litassist_graph(
     question: str,
     papers: list[dict],
     project_name: str = "Literature Review",
+    project_description: str = "",
     model_name: str = "gemini-2.5-flash",
 ) -> dict:
     """Entry point called by the FastAPI route with multi-model failover."""
@@ -767,6 +783,7 @@ async def run_litassist_graph(
             result = await app.ainvoke({
                 "question": question,
                 "project_name": project_name,
+                "project_description": project_description,
                 "papers": papers,
                 "paper_context": "",
                 "tool_results": "",

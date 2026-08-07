@@ -14,7 +14,7 @@ interface LeftSidebarProps {
   sidebarTab: SidebarTab;
   onTabChange: (tab: SidebarTab) => void;
   onSelectProject: (id: string) => void;
-  onAddProject: (name: string) => void;
+  onAddProject: (name: string, description: string) => void;
   onDeleteProject?: (id: string) => void;
   onSelectChat?: (chatId: string) => void;
   onNewChat?: () => void;

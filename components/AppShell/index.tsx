@@ -187,17 +187,23 @@ export default function AppShell() {
     setCenterTab("files");
   };
 
-  const handleAddProject = (name: string) => {
+  const handleAddProject = (name: string, description: string = "") => {
     const newProject: Project = {
       id: `p${Date.now()}`,
       name,
-      description: "",
+      description,
       createdAt: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       papers: [],
     };
     setProjects((prev) => [...prev, newProject]);
     setActiveProjectId(newProject.id);
     setCenterTab("files");
+  };
+
+  const handleUpdateProjectDescription = (description: string) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === activeProjectId ? { ...p, description } : p))
+    );
   };
 
   const handleDeleteProject = (id: string) => {
@@ -260,6 +266,7 @@ export default function AppShell() {
         onClearSelection={() => setSelectedPaperIds(new Set())}
         onAddPaper={handleAddPaper}
         onDeletePaper={handleDeletePaper}
+        onUpdateDescription={handleUpdateProjectDescription}
         theme={theme}
         onToggleTheme={toggleTheme}
       />

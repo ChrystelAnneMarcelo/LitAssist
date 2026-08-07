@@ -70,6 +70,7 @@ async def chat(body: ChatInput):
             question=body.question,
             papers=[p.model_dump() for p in body.papers],
             project_name=body.projectName,
+            project_description=body.projectDescription,
             model_name=body.modelName,
         )
 

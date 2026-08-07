@@ -274,6 +274,7 @@ export default function ChatView({
           question: text.trim(),
           papers: activePapers,
           projectName: project.name,
+          projectDescription: project.description,
           modelName: selectedModel,
         }),
       });

@@ -6,6 +6,7 @@ import type { Paper, AgentResponse } from "./schemas";
 const AgentState = Annotation.Root({
   question: Annotation<string>(),
   projectName: Annotation<string>(),
+  projectDescription: Annotation<string>(),
   papers: Annotation<Paper[]>(),
   paperContext: Annotation<string>(),
   toolResults: Annotation<string>(),  // results from search tool
@@ -320,6 +321,7 @@ export async function runLitAssistGraph(input: {
   question: string;
   papers: Paper[];
   projectName?: string;
+  projectDescription?: string;
 }): Promise<AgentResponse & { usedFallback: boolean }> {
   const startTime = Date.now();
 
@@ -328,6 +330,7 @@ export async function runLitAssistGraph(input: {
     question: input.question,
     papers: input.papers,
     projectName: input.projectName || "Literature Review",
+    projectDescription: input.projectDescription || "",
     paperContext: "",
     toolResults: "",
     draft: "",
