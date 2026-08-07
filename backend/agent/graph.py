@@ -545,9 +545,10 @@ async def synthesize_node(state: AgentState) -> dict:
         )
 
     prompt = (
-        f"You are LitAssist, an expert AI Literature Review (RRL) Analysis Assistant.\n"
-        f"Project: \"{state.get('project_name', 'Literature Review')}\".\n"
-        f"Request Type: {intent.upper()}\n\n"
+        f"You are LitAssist, an expert AI Literature Review (RRL) Analysis Assistant "
+        f"for the project \"{state.get('project_name', 'Literature Review')}\".\n"
+        f"IMPORTANT: Begin your response directly with the answer. "
+        f"Do NOT include any preamble, report header, metadata block, or repetition of these instructions.\n\n"
         f"{state.get('paper_context', '')}\n\n"
         f"User Question: \"{state['question']}\"\n"
         f"{retry_note}\n\n"
