@@ -7,11 +7,13 @@ Pipeline:
                                                       ↑                              ↓
                                                       └─── retry loop (max 3) ───────┘
 """
+import asyncio
 import json
 import math
 import os
 import re
 import time
+import xml.etree.ElementTree as ET
 from typing import TypedDict, Annotated, Optional
 
 import httpx
@@ -110,6 +112,207 @@ async def crossref_search_tool(query: str) -> str:
         return f"Tool Error: {e}"
 
 
+# ─── Tool: Semantic Scholar Search ───────────────────────────
+async def semantic_scholar_search_tool(query: str) -> str:
+    """
+    Queries the Semantic Scholar API for scholarly papers.
+    Returns AI-generated TLDRs where available alongside abstracts.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                "https://api.semanticscholar.org/graph/v1/paper/search",
+                params={
+                    "query": query,
+                    "limit": "3",
+                    "fields": "title,authors,year,abstract,tldr",
+                },
+                headers={"User-Agent": "LitAssist/1.0 (mailto:research@litassist.app)"},
+            )
+            if resp.status_code != 200:
+                return f"Tool Error: Semantic Scholar returned HTTP {resp.status_code}"
+
+            items = resp.json().get("data", [])
+            if not items:
+                return "No results found via Semantic Scholar for this query."
+
+            results = []
+            for i, item in enumerate(items):
+                title = item.get("title") or "Untitled"
+                authors_raw = item.get("authors", [])
+                authors = "; ".join(a.get("name", "") for a in authors_raw[:3]) or "Unknown Authors"
+                year = item.get("year") or "N/A"
+                abstract_raw = item.get("abstract") or ""
+                tldr = item.get("tldr") or {}
+                tldr_text = tldr.get("text", "") if isinstance(tldr, dict) else ""
+                abstract = (abstract_raw[:250] + "…") if abstract_raw else (tldr_text or "No abstract available.")
+                results.append(
+                    f'[Tool Result {i + 1}] "{title}" — {authors} ({year})\n'
+                    f"Abstract: {abstract}"
+                )
+            return "\n\n---\n\n".join(results)
+
+    except Exception as e:
+        return f"Tool Error: {e}"
+
+
+# ─── Tool: arXiv Search ───────────────────────────────────────
+async def arxiv_search_tool(query: str) -> str:
+    """
+    Queries the arXiv API for pre-print papers.
+    Essential for cutting-edge CS, AI, and physics research.
+    Returns an Atom XML feed parsed via ElementTree.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                "http://export.arxiv.org/api/query",
+                params={
+                    "search_query": f"all:{query}",
+                    "max_results": "3",
+                    "sortBy": "relevance",
+                },
+                headers={"User-Agent": "LitAssist/1.0 (mailto:research@litassist.app)"},
+            )
+            if resp.status_code != 200:
+                return f"Tool Error: arXiv returned HTTP {resp.status_code}"
+
+            ns = {"atom": "http://www.w3.org/2005/Atom"}
+            root = ET.fromstring(resp.text)
+            entries = root.findall("atom:entry", ns)
+
+            if not entries:
+                return "No results found via arXiv for this query."
+
+            results = []
+            for i, entry in enumerate(entries):
+                title = (entry.findtext("atom:title", default="Untitled", namespaces=ns) or "").strip()
+                authors = "; ".join(
+                    author.findtext("atom:name", default="", namespaces=ns)
+                    for author in entry.findall("atom:author", ns)[:3]
+                ) or "Unknown Authors"
+                published = entry.findtext("atom:published", default="N/A", namespaces=ns) or "N/A"
+                year = published[:4] if published != "N/A" else "N/A"
+                abstract_raw = entry.findtext("atom:summary", default="", namespaces=ns) or ""
+                abstract = (abstract_raw.strip()[:250] + "…") if abstract_raw.strip() else "No abstract available."
+                results.append(
+                    f'[Tool Result {i + 1}] "{title}" — {authors} ({year})\n'
+                    f"Source: arXiv (pre-print)\nAbstract: {abstract}"
+                )
+            return "\n\n---\n\n".join(results)
+
+    except Exception as e:
+        return f"Tool Error: {e}"
+
+
+# ─── Tool: PubMed Search (via Europe PMC) ─────────────────────
+async def pubmed_search_tool(query: str) -> str:
+    """
+    Queries Europe PMC for PubMed-indexed papers.
+    Uses Europe PMC's JSON API (cleaner than NCBI's XML endpoint).
+    Best for medical, biological, and health science literature.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+                params={
+                    "query": query,
+                    "resulttype": "core",
+                    "pageSize": "3",
+                    "format": "json",
+                },
+                headers={"User-Agent": "LitAssist/1.0 (mailto:research@litassist.app)"},
+            )
+            if resp.status_code != 200:
+                return f"Tool Error: Europe PMC returned HTTP {resp.status_code}"
+
+            items = resp.json().get("resultList", {}).get("result", [])
+            if not items:
+                return "No results found via PubMed/Europe PMC for this query."
+
+            results = []
+            for i, item in enumerate(items):
+                title = item.get("title") or "Untitled"
+                authors_raw = item.get("authorString") or "Unknown Authors"
+                year = str(item.get("pubYear") or "N/A")
+                journal = item.get("journalTitle") or "N/A"
+                abstract_raw = item.get("abstractText") or ""
+                abstract = (abstract_raw[:250] + "…") if abstract_raw else "No abstract available."
+                results.append(
+                    f'[Tool Result {i + 1}] "{title}" — {authors_raw} ({year})\n'
+                    f"Journal: {journal}\nAbstract: {abstract}"
+                )
+            return "\n\n---\n\n".join(results)
+
+    except Exception as e:
+        return f"Tool Error: {e}"
+
+
+# ─── Tool: OpenAlex Search ────────────────────────────────────
+async def openalex_search_tool(query: str) -> str:
+    """
+    Queries OpenAlex for open-access scholarly works across all disciplines.
+    Reconstructs abstracts from OpenAlex's inverted-index format.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                "https://api.openalex.org/works",
+                params={
+                    "search": query,
+                    "per-page": "3",
+                    "select": "title,authorships,publication_year,primary_location,abstract_inverted_index",
+                },
+                headers={
+                    "User-Agent": "LitAssist/1.0 (mailto:research@litassist.app)",
+                    "mailto": "research@litassist.app",
+                },
+            )
+            if resp.status_code != 200:
+                return f"Tool Error: OpenAlex returned HTTP {resp.status_code}"
+
+            items = resp.json().get("results", [])
+            if not items:
+                return "No results found via OpenAlex for this query."
+
+            results = []
+            for i, item in enumerate(items):
+                title = item.get("title") or "Untitled"
+                authorships = item.get("authorships", [])
+                authors = "; ".join(
+                    a.get("author", {}).get("display_name", "")
+                    for a in authorships[:3]
+                ) or "Unknown Authors"
+                year = str(item.get("publication_year") or "N/A")
+                location = item.get("primary_location") or {}
+                source = (location.get("source") or {}).get("display_name") or "N/A"
+
+                # Reconstruct abstract from OpenAlex's inverted-index format
+                abstract = "No abstract available."
+                inv_index = item.get("abstract_inverted_index")
+                if inv_index:
+                    try:
+                        max_pos = max(pos for positions in inv_index.values() for pos in positions)
+                        words = [""] * (max_pos + 1)
+                        for word, positions in inv_index.items():
+                            for pos in positions:
+                                words[pos] = word
+                        abstract_text = " ".join(words).strip()
+                        abstract = (abstract_text[:250] + "…") if abstract_text else "No abstract available."
+                    except Exception:
+                        pass
+
+                results.append(
+                    f'[Tool Result {i + 1}] "{title}" — {authors} ({year})\n'
+                    f"Journal/Source: {source}\nAbstract: {abstract}"
+                )
+            return "\n\n---\n\n".join(results)
+
+    except Exception as e:
+        return f"Tool Error: {e}"
+
+
 # ─── Node 1: Planner ──────────────────────────────────────────
 async def planner_node(state: AgentState) -> dict:
     """
@@ -148,20 +351,54 @@ async def planner_node(state: AgentState) -> dict:
 
 # ─── Node 2: Search Tool ──────────────────────────────────────
 async def search_tool_node(state: AgentState) -> dict:
-    """Calls the Crossref tool if the Planner requested it."""
+    """
+    Queries 5 academic databases in parallel when the Planner requests a search:
+    Crossref, Semantic Scholar, arXiv, PubMed (via Europe PMC), and OpenAlex.
+
+    asyncio.gather with return_exceptions=True ensures that a single slow or
+    broken database never blocks results from the others.
+    """
     start = time.time()
 
     if not state.get("tool_results", "").startswith("__SEARCH__:"):
         return {"trace": ["[SearchToolNode +0ms] Skipped — no tool call requested."]}
 
     query = state["tool_results"].replace("__SEARCH__:", "")
-    results = await crossref_search_tool(query)
+
+    # ── Run all 5 databases in parallel ──────────────────────────
+    raw_results = await asyncio.gather(
+        crossref_search_tool(query),
+        semantic_scholar_search_tool(query),
+        arxiv_search_tool(query),
+        pubmed_search_tool(query),
+        openalex_search_tool(query),
+        return_exceptions=True,
+    )
+
+    DB_LABELS = ["Crossref", "Semantic Scholar", "arXiv", "PubMed", "OpenAlex"]
+    sections = []
+    statuses = []
+
+    for label, result in zip(DB_LABELS, raw_results):
+        if isinstance(result, Exception):
+            statuses.append(f"{label} ✗")
+            continue
+        if not isinstance(result, str) or result.startswith("Tool Error"):
+            statuses.append(f"{label} ✗")
+            continue
+        if result.startswith("No results"):
+            statuses.append(f"{label} (0 results)")
+            continue
+        sections.append(f"=== {label} ===\n\n{result}")
+        statuses.append(f"{label} ✓")
+
+    merged = "\n\n".join(sections) if sections else "No results found across all academic databases."
     elapsed = int((time.time() - start) * 1000)
-    count_label = "0" if results.startswith(("No results", "Tool Error")) else "up to 3"
+    status_summary = ", ".join(statuses)
 
     return {
-        "tool_results": results,
-        "trace": [f"[SearchToolNode +{elapsed}ms] Crossref tool returned {count_label} result(s) for \"{query}\""],
+        "tool_results": merged,
+        "trace": [f"[SearchToolNode +{elapsed}ms] Queried 5 databases in parallel — {status_summary}"],
     }
 
 
