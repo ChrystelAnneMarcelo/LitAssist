@@ -22,9 +22,9 @@ const SUGGESTIONS = [
 ];
 
 const MODELS = [
-  { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash", note: "Fastest" },
-  { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash", note: "Latest" },
-  { id: "gemini-1.5-pro",   label: "Gemini 1.5 Pro",   note: "Deepest" },
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", note: "Fastest" },
+  { id: "gemini-2.5-pro",   label: "Gemini 2.5 Pro",   note: "Deepest" },
+  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Lite", note: "Lightweight" },
 ] as const;
 
 type ModelId = typeof MODELS[number]["id"];
@@ -221,7 +221,7 @@ export default function ChatView({
   const [isTyping, setIsTyping] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [openTraces, setOpenTraces] = useState<Set<string>>(new Set());
-  const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash");
+  const [selectedModel, setSelectedModel] = useState<ModelId>("gemini-2.5-flash");
   const endRef = useRef<HTMLDivElement>(null);
 
   const toggleTrace = (id: string) => setOpenTraces(prev => {
