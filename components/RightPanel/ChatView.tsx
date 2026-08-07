@@ -47,9 +47,7 @@ function generateFallbackResponse(question: string, papers: Paper[], project: Pr
       const titleStr = p.title || "Untitled Paper";
       const authorStr = p.authors ? `${p.authors} (${p.year || "N/A"})` : `${p.year || "N/A"}`;
       const journalStr = p.journal ? ` — *${p.journal}*` : "";
-      const abstractSnippet = p.abstract
-        ? p.abstract.length > 280 ? p.abstract.slice(0, 280) + "…" : p.abstract
-        : "No abstract available.";
+      const abstractSnippet = p.abstract ? p.abstract.trim() : "No abstract available.";
       const methodologyStr = p.methodology ? `\n• **Methodology**: ${p.methodology}` : "";
 
       const findings = (p.keyFindings || []).filter((f) => f && f.trim().length > 0);

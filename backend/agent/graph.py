@@ -102,7 +102,7 @@ async def crossref_search_tool(query: str) -> str:
                 journal = (item.get("container-title") or ["N/A"])[0]
                 doi = item.get("DOI", "N/A")
                 abstract_raw = item.get("abstract", "")
-                abstract = re.sub(r"<[^>]+>", "", abstract_raw)[:250] + "…" if abstract_raw else "No abstract available."
+                abstract = re.sub(r"<[^>]+>", "", abstract_raw)[:600] + "…" if abstract_raw else "No abstract available."
                 results.append(
                     f'[Tool Result {i + 1}] "{title}" — {authors} ({year})\n'
                     f"Journal: {journal} | DOI: {doi}\nAbstract: {abstract}"
@@ -146,7 +146,7 @@ async def semantic_scholar_search_tool(query: str) -> str:
                 abstract_raw = item.get("abstract") or ""
                 tldr = item.get("tldr") or {}
                 tldr_text = tldr.get("text", "") if isinstance(tldr, dict) else ""
-                abstract = (abstract_raw[:250] + "…") if abstract_raw else (tldr_text or "No abstract available.")
+                abstract = (abstract_raw[:600] + "…") if abstract_raw else (tldr_text or "No abstract available.")
                 results.append(
                     f'[Tool Result {i + 1}] "{title}" — {authors} ({year})\n'
                     f"Abstract: {abstract}"
@@ -195,7 +195,7 @@ async def arxiv_search_tool(query: str) -> str:
                 published = entry.findtext("atom:published", default="N/A", namespaces=ns) or "N/A"
                 year = published[:4] if published != "N/A" else "N/A"
                 abstract_raw = entry.findtext("atom:summary", default="", namespaces=ns) or ""
-                abstract = (abstract_raw.strip()[:250] + "…") if abstract_raw.strip() else "No abstract available."
+                abstract = (abstract_raw.strip()[:600] + "…") if abstract_raw.strip() else "No abstract available."
                 results.append(
                     f'[Tool Result {i + 1}] "{title}" — {authors} ({year})\n'
                     f"Source: arXiv (pre-print)\nAbstract: {abstract}"
@@ -239,7 +239,7 @@ async def pubmed_search_tool(query: str) -> str:
                 year = str(item.get("pubYear") or "N/A")
                 journal = item.get("journalTitle") or "N/A"
                 abstract_raw = item.get("abstractText") or ""
-                abstract = (abstract_raw[:250] + "…") if abstract_raw else "No abstract available."
+                abstract = (abstract_raw[:600] + "…") if abstract_raw else "No abstract available."
                 results.append(
                     f'[Tool Result {i + 1}] "{title}" — {authors_raw} ({year})\n'
                     f"Journal: {journal}\nAbstract: {abstract}"
@@ -300,7 +300,7 @@ async def openalex_search_tool(query: str) -> str:
                             for pos in positions:
                                 words[pos] = word
                         abstract_text = " ".join(words).strip()
-                        abstract = (abstract_text[:250] + "…") if abstract_text else "No abstract available."
+                        abstract = (abstract_text[:600] + "…") if abstract_text else "No abstract available."
                     except Exception:
                         pass
 
