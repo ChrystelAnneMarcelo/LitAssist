@@ -760,12 +760,10 @@ async def run_litassist_graph(
                 "completion_tokens": 0,
                 "model_name": target_model,
             })
-            if res and res.get("draft") and res.get("draft") != "__FALLBACK__":
-                result = res
-                break
-            elif res and res.get("draft") == "__FALLBACK__":
-                result = res
-                break
+            if result and result.get("draft") and result.get("draft") != "__FALLBACK__":
+                break  # Got a real draft — stop trying more models
+            elif result and result.get("draft") == "__FALLBACK__":
+                continue  # Soft fallback (no API key / offline) — try next model
         except Exception as err:
             err_str = str(err)
             print(f"[WARN] Graph execution failed on model '{target_model}': {err_str[:140]}")
