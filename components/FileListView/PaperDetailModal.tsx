@@ -1,17 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { X, BookOpen, Target, FlaskConical, Copy, Check, Calendar, User, Tag, BookMarked, ExternalLink, FileText } from "lucide-react";
-import type { Paper } from "@/types";
+import { X, BookOpen, Target, FlaskConical, Copy, Check, Calendar, User, Tag, BookMarked, ExternalLink, FileText, Award } from "lucide-react";
+import type { Paper, Project } from "@/types";
+import ScoringRubricModal from "@/components/ScoringRubricModal";
 import styles from "./styles.module.css";
 
 interface PaperDetailModalProps {
   paper: Paper;
   onClose: () => void;
+  project?: Project;
 }
 
-export default function PaperDetailModal({ paper, onClose }: PaperDetailModalProps) {
+export default function PaperDetailModal({ paper, onClose, project }: PaperDetailModalProps) {
   const [copied, setCopied] = useState(false);
+  const [showRubricModal, setShowRubricModal] = useState(false);
 
   const formatApaAuthors = (authors: string) => {
     if (!authors || authors === "Unknown Author") return "Unknown Author";
@@ -47,9 +50,30 @@ export default function PaperDetailModal({ paper, onClose }: PaperDetailModalPro
             <BookMarked size={16} style={{ color: "var(--primary)" }} />
             <span className={styles.modalTitle}>Paper Details</span>
           </div>
-          <button onClick={onClose} className={styles.modalClose}>
-            <X size={15} />
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              onClick={() => setShowRubricModal(true)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 11,
+                fontFamily: "var(--font-mono)",
+                color: "var(--primary)",
+                background: "rgba(201,169,110,0.08)",
+                border: "1px solid rgba(201,169,110,0.25)",
+                borderRadius: "var(--radius-sm)",
+                cursor: "pointer",
+                padding: "4px 8px",
+              }}
+              title="View Paper Appraisal & Scoring Rubric"
+            >
+              <Award size={12} /> Rubric
+            </button>
+            <button onClick={onClose} className={styles.modalClose}>
+              <X size={15} />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -230,6 +254,8 @@ export default function PaperDetailModal({ paper, onClose }: PaperDetailModalPro
           <button onClick={onClose} className={styles.btnSecondary}>Close</button>
         </div>
       </div>
+
+      {showRubricModal && <ScoringRubricModal project={project} onClose={() => setShowRubricModal(false)} />}
     </div>
   );
 }

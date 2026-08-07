@@ -6,15 +6,16 @@ import styles from "./styles.module.css";
 
 interface AddProjectModalProps {
   onClose: () => void;
-  onAdd: (name: string) => void;
+  onAdd: (name: string, description: string) => void;
 }
 
 export default function AddProjectModal({ onClose, onAdd }: AddProjectModalProps) {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
 
   const handleSubmit = () => {
     if (!name.trim()) return;
-    onAdd(name.trim());
+    onAdd(name.trim(), description.trim());
     onClose();
   };
 
@@ -35,10 +36,19 @@ export default function AddProjectModal({ onClose, onAdd }: AddProjectModalProps
           <input
             autoFocus
             className={styles.input}
-            placeholder="e.g. Lettuce disease detection"
+            placeholder="e.g. AI-Based Disease Detection"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+          />
+
+          <label className={styles.fieldLabel} style={{ marginTop: 12 }}>RESEARCH TOPIC / QUESTION</label>
+          <textarea
+            className={styles.input}
+            style={{ height: 72, resize: "none", paddingTop: 8, paddingBottom: 8, lineHeight: 1.4 }}
+            placeholder="e.g. Deep learning architectures and non-invasive methods for early anomaly detection"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), handleSubmit())}
           />
         </div>
 

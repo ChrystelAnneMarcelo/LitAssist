@@ -17,6 +17,7 @@ export const ChatInputSchema = z.object({
   question: z.string().min(1, "Question cannot be empty"),
   papers: z.array(PaperSchema).optional().default([]),
   projectName: z.string().optional().default("Literature Review"),
+  projectDescription: z.string().optional().default(""),
 });
 
 // ─── Node output schemas ─────────────────────────────────────

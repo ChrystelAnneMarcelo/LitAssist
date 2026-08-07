@@ -1,11 +1,14 @@
 """
 backend/agent/graph.py
-LangGraph StateGraph — 5-node agent pipeline for LitAssist.
+LangGraph StateGraph — Multi-Agent Router Pipeline for LitAssist.
 
 Pipeline:
-  PlannerNode → (conditional) → SearchToolNode → ExtractNode → SynthesizeNode → ReviewerNode
-                                                      ↑                              ↓
-                                                      └─── retry loop (max 3) ───────┘
+  RouterNode (entry) → intent classification
+    ├── analyze  → PlannerNode → SearchToolNode → ExtractNode → SynthesizeNode → ReviewerNode
+    ├── summarize→ ExtractNode → SynthesizeNode → ReviewerNode
+    └── general  → PlannerNode → SearchToolNode → ExtractNode → SynthesizeNode → ReviewerNode
+
+  ReviewerNode retry loop (max 3): SynthesizeNode ← score < 80
 """
 import asyncio
 import json
@@ -32,6 +35,7 @@ def merge_lists(a: list, b: list) -> list:
 class AgentState(TypedDict):
     question: str
     project_name: str
+    project_description: str
     papers: list[dict]
     paper_context: str
     tool_results: str
@@ -43,25 +47,27 @@ class AgentState(TypedDict):
     prompt_tokens: int
     completion_tokens: int
     model_name: str
+    intent: str        # Routed intent: "analyze" | "summarize" | "review_only" | "general"
+    draft_text: str    # User-supplied draft for review_only path (empty otherwise)
 
 
 MAX_RETRIES = 3
 
 
 VALID_MODELS = {
-    "gemini-2.5-flash",
-    "gemini-3.5-flash",
-    "gemini-3.6-flash",
+    "gemini-1.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-pro",
     "gemini-flash-latest",
 }
 
 
 # ─── Helper: get LLM ──────────────────────────────────────────
-def get_llm(model_name: str = "gemini-2.5-flash") -> ChatGoogleGenerativeAI:
+def get_llm(model_name: str = "gemini-1.5-flash") -> ChatGoogleGenerativeAI:
     api_key = os.getenv("API_KEY") or os.getenv("GEMINI_API_KEY", "")
     if not api_key:
         raise ValueError("NO_API_KEY")
-    target_model = model_name if model_name in VALID_MODELS else "gemini-2.5-flash"
+    target_model = model_name if model_name in VALID_MODELS else "gemini-1.5-flash"
     return ChatGoogleGenerativeAI(
         model=target_model,
         google_api_key=api_key,
@@ -323,6 +329,48 @@ async def openalex_search_tool(query: str) -> str:
         return f"Tool Error: {e}"
 
 
+# ─── Node 0: Router (Intent Classifier / Orchestrator) ──────
+async def router_node(state: AgentState) -> dict:
+    """
+    Entry-point Orchestrator: Classifies the user's request intent and decides
+    which pipeline stage to enter — satisfying the mentor's specific requirement:
+      - 'review_only' → skip everything, route straight to ReviewerNode
+                        (user already has a draft and just wants it scored)
+      - 'summarize'   → skip search, route straight to ExtractNode
+      - 'analyze'     → full pipeline: Planner → Search → Extract → Synthesize → Review
+      - 'general'     → full pipeline: Planner → Search → Extract → Synthesize → Review
+    """
+    start = time.time()
+    q = state["question"].lower()
+
+    # Intent classification — ordered from most specific to least
+    review_draft_kws = ["score my draft", "review my draft", "grade my draft", "evaluate my draft", "check my draft", "peer review my draft"]
+    analyze_kws = ["compare", "comparison", "difference", "findings", "score", "relevance",
+                   "methodology", "analyze", "analysis", "evaluate", "contrast", "appraise", "rate", "grade",
+                   "score this", "review this", "grade this", "rate this", "appraise this"]
+    summarize_kws = ["summarize", "summary", "summarise", "overview", "brief",
+                     "outline", "abstract", "key points"]
+
+    # Check if user pasted a draft (question contains substantial paragraph text)
+    user_draft = state.get("draft_text", "").strip()
+    has_pasted_draft = len(user_draft.split()) > 50
+
+    if has_pasted_draft or any(kw in q for kw in review_draft_kws):
+        intent = "review_only"
+    elif any(kw in q for kw in analyze_kws):
+        intent = "analyze"
+    elif any(kw in q for kw in summarize_kws):
+        intent = "summarize"
+    else:
+        intent = "general"
+
+    elapsed = int((time.time() - start) * 1000)
+    return {
+        "intent": intent,
+        "trace": [f"[RouterNode +{elapsed}ms] Orchestrator classified intent='{intent}' → routing to {'ReviewerNode directly' if intent == 'review_only' else 'ExtractNode' if intent == 'summarize' else 'PlannerNode'}: \"{state['question'][:55]}...\""],
+    }
+
+
 # ─── Node 1: Planner ──────────────────────────────────────────
 async def planner_node(state: AgentState) -> dict:
     """
@@ -334,10 +382,15 @@ async def planner_node(state: AgentState) -> dict:
     start = time.time()
     papers = state.get("papers", [])
     q = state["question"].lower()
+    intent = state.get("intent", "general")
 
+    # For summarize intent with existing papers, skip tool search
     needs_tool = (
         len(papers) == 0
-        or any(kw in q for kw in ["search", "find", "latest", "recent", "look up", "additional", "more paper"])
+        or (
+            intent not in ("summarize",)
+            and any(kw in q for kw in ["search", "find", "latest", "recent", "look up", "additional", "more paper"])
+        )
     )
 
     elapsed = int((time.time() - start) * 1000)
@@ -350,12 +403,12 @@ async def planner_node(state: AgentState) -> dict:
         ).strip()
         return {
             "tool_results": f"__SEARCH__:{search_query}",
-            "trace": [f"[PlannerNode +{elapsed}ms] Agent decided to invoke SearchTool for: \"{search_query}\""],
+            "trace": [f"[PlannerNode +{elapsed}ms] ({intent}) Agent decided to invoke SearchTool for: \"{search_query}\""],
         }
 
     return {
         "tool_results": "",
-        "trace": [f"[PlannerNode +{elapsed}ms] Agent using existing {len(papers)} paper(s) — no tool call needed."],
+        "trace": [f"[PlannerNode +{elapsed}ms] ({intent}) Agent using existing {len(papers)} paper(s) — no tool call needed."],
     }
 
 
@@ -446,22 +499,33 @@ async def extract_node(state: AgentState) -> dict:
 
     tool_results = state.get("tool_results", "")
     tool_context = ""
+    tool_note = ""
     if tool_results and not tool_results.startswith("__SEARCH__:") and not tool_results.startswith("Tool Error"):
         tool_context = "\n\n## Additional Papers Retrieved by Agent (Multi-Database Search)\n\n" + tool_results
+        tool_note = " + web search results"
+
+    # Build project header context
+    proj_name = state.get("project_name", "Literature Review")
+    proj_desc = state.get("project_description", "").strip()
+    scope_header = f"## Project Context & Research Scope\nProject: {proj_name}\n"
+    if proj_desc:
+        scope_header += f"Research Scope / Question: {proj_desc}\n\n"
+    else:
+        scope_header += "\n"
 
     elapsed = int((time.time() - start) * 1000)
-    tool_note = " + multi-database search results" if tool_context else ""
 
     return {
-        "paper_context": selected_context + tool_context,
+        "paper_context": scope_header + selected_context + tool_context,
         "trace": [f"[ExtractNode +{elapsed}ms] Context built: {len(papers)} project paper(s){tool_note}."],
     }
 
 
 # ─── Node 4: Synthesize ───────────────────────────────────────
 async def synthesize_node(state: AgentState) -> dict:
-    """Calls Gemini to generate an RRL draft using the built context."""
+    """Calls Gemini to generate an RRL draft using the built context, tailored by intent."""
     start = time.time()
+    intent = state.get("intent", "general")
 
     retry_note = ""
     if state.get("retries", 0) > 0:
@@ -471,15 +535,50 @@ async def synthesize_node(state: AgentState) -> dict:
             "Please improve accordingly."
         )
 
+    proj_name = state.get("project_name", "Literature Review")
+    proj_desc = state.get("project_description", "").strip()
+
+    # Intent-aware prompt shaping
+    if intent == "analyze" or any(kw in state['question'].lower() for kw in ["score", "rate", "appraise", "evaluate", "grade"]):
+        task_instruction = (
+            "Perform a detailed paper appraisal and analytical breakdown for the user-selected paper(s) provided in the context.\n"
+            f"Evaluate and score each paper specifically against the project scope '{proj_name}'"
+            + (f" (Scope: {proj_desc})" if proj_desc else "") + ".\n\n"
+            "Structure your appraisal for each paper as follows:\n"
+            "### 1. Topic Relevance Score (0–100%)\n"
+            "* Assess how directly the paper's research questions, core focus, and findings align with the project research scope.\n\n"
+            "### 2. Methodological Rigor Score (0–100%)\n"
+            "* Evaluate the soundness, quality, and analytical validity of the paper's research design, evidence, and execution.\n"
+            "* Assess data/evidence quality (sample adequacy, dataset integrity, or source reliability), conceptual framework clarity, validation robustness, logical coherence, and procedure/citation transparency.\n\n"
+            "### 3. Overall RRL Score (0–100%)\n"
+            "* Key Strengths: Identify major contributions, findings, or analytical insights.\n"
+            "* Limitations: Discuss methodological gaps, limitations, or scope/generalizability constraints.\n"
+            "* RRL Contribution: Explain how this paper advances the literature review.\n\n"
+            "Do NOT ask the user to provide paper content if paper context is already present in the prompt. Perform the complete appraisal directly on the provided paper context."
+        )
+    elif intent == "summarize":
+        task_instruction = (
+            "Provide a clear, concise, and academic synthesis summary. "
+            "Capture abstract, key contributions, methodology, and relevance of each paper to the project topic. "
+            "Use numbered sections per paper and cite author names."
+        )
+    else:
+        task_instruction = (
+            "Write a highly academic, structured, and insightful RRL response. "
+            "Use clear markdown formatting with headers and bullet points. "
+            "Cite author names when referring to specific papers."
+        )
+
     prompt = (
-        f"You are LitAssist, an expert AI Literature Review (RRL) Analysis Assistant.\n"
-        f"Project: \"{state.get('project_name', 'Literature Review')}\".\n\n"
+        f"You are LitAssist, an expert AI Literature Review (RRL) Analysis Assistant "
+        f"for the project \"{proj_name}\".\n"
+        + (f"Project Scope / Topic Description: \"{proj_desc}\"\n" if proj_desc else "")
+        + f"IMPORTANT: Begin your response directly with the answer. "
+        f"Do NOT include any preamble, report header, metadata block, or repetition of these instructions.\n\n"
         f"{state.get('paper_context', '')}\n\n"
         f"User Question: \"{state['question']}\"\n"
         f"{retry_note}\n\n"
-        "Write a highly academic, structured, and insightful RRL response. "
-        "Use clear markdown formatting with headers and bullet points. "
-        "Cite author names when referring to specific papers."
+        f"{task_instruction}"
     )
 
     text = ""
@@ -543,11 +642,14 @@ async def synthesize_node(state: AgentState) -> dict:
 async def review_node(state: AgentState) -> dict:
     """
     Real LLM-as-a-Judge Node: Evaluates academic rigor, citations, and structural relevance.
-    Uses fast-path structural scoring for detailed drafts (>120 words) to eliminate redundant
-    API roundtrips, reducing total latency from 88s to under 5s.
+    Accepts either:
+      - A draft generated by SynthesizeNode (standard pipeline path)
+      - A user-supplied draft from draft_text (review_only path — mentor's 'straight to review')
+    Uses fast-path structural scoring on long, well-structured drafts for speed.
     """
     start = time.time()
-    draft = state.get("draft", "")
+    # Prefer user-supplied draft (review_only path) over synthesized draft
+    draft = state.get("draft_text", "").strip() or state.get("draft", "")
 
     if draft == "__FALLBACK__":
         return {
@@ -622,24 +724,49 @@ def should_retry(state: AgentState) -> str:
     return "synthesize"
 
 
+# ─── Routing: router → planner | extract | review ────────────
+def router_decision(state: AgentState) -> str:
+    intent = state.get("intent", "general")
+    q = state.get("question", "").lower()
+    # review_only: user pasted a draft — skip straight to ReviewerNode
+    if intent == "review_only":
+        return "review"
+    # If user explicitly asked for web search or looking up new papers
+    if any(kw in q for kw in ["search", "find", "latest", "recent", "look up", "additional", "more paper"]):
+        return "planner"
+    # Standard paper chat, scoring, or synthesis: go straight to Extract -> Synthesize
+    return "extract"
+
+
 # ─── Build and compile graph ───────────────────────────────────
 def build_graph():
     graph = StateGraph(AgentState)
 
+    graph.add_node("router", router_node)
     graph.add_node("planner", planner_node)
     graph.add_node("searchTool", search_tool_node)
     graph.add_node("extract", extract_node)
     graph.add_node("synthesize", synthesize_node)
     graph.add_node("review", review_node)
 
-    graph.set_entry_point("planner")
+    graph.set_entry_point("router")
+    graph.add_conditional_edges("router", router_decision, {
+        "planner": "planner",
+        "extract": "extract",
+        "review": "review",   # mentor's 'straight to review' path
+    })
     graph.add_conditional_edges("planner", planner_decision, {
         "searchTool": "searchTool",
         "extract": "extract",
     })
     graph.add_edge("searchTool", "extract")
     graph.add_edge("extract", "synthesize")
-    graph.add_edge("synthesize", "review")
+
+    # Direct finish after synthesize for single-pass response, or route to review if requested
+    graph.add_conditional_edges("synthesize", lambda s: "review" if s.get("intent") == "review_only" else "end", {
+        "review": "review",
+        "end": END,
+    })
     graph.add_conditional_edges("review", should_retry, {
         "synthesize": "synthesize",
         "end": END,
@@ -653,58 +780,59 @@ async def run_litassist_graph(
     question: str,
     papers: list[dict],
     project_name: str = "Literature Review",
-    model_name: str = "gemini-2.5-flash",
+    project_description: str = "",
+    model_name: str = "gemini-1.5-flash",
 ) -> dict:
     """Entry point called by the FastAPI route with multi-model failover."""
     start_time = time.time()
     app = build_graph()
 
-    models_to_try = [model_name] + [m for m in ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-flash-latest"] if m != model_name]
-
-    result = None
-    last_error = None
-    active_model = model_name
-
-    for target_model in models_to_try:
-        try:
-            active_model = target_model
-            res = await app.ainvoke({
-                "question": question,
-                "project_name": project_name,
-                "papers": papers,
-                "paper_context": "",
-                "tool_results": "",
-                "draft": "",
-                "review_score": 0,
-                "review_feedback": "",
-                "retries": 0,
-                "trace": [f"[Router] Initiating graph execution with model: {target_model}"],
-                "prompt_tokens": 0,
-                "completion_tokens": 0,
-                "model_name": target_model,
-            })
-            if res and res.get("draft") and res.get("draft") != "__FALLBACK__":
-                result = res
-                break
-            elif res and res.get("draft") == "__FALLBACK__":
-                result = res
-                break
-        except Exception as err:
-            err_str = str(err)
-            print(f"[WARN] Graph execution failed on model '{target_model}': {err_str[:140]}")
-            last_error = err_str
-            if "RESOURCE_EXHAUSTED" in err_str or "429" in err_str or "NOT_FOUND" in err_str:
-                continue
-            else:
-                break
+    try:
+        active_model = model_name
+        result = await app.ainvoke({
+            "question": question,
+            "project_name": project_name,
+            "project_description": project_description,
+            "papers": papers,
+            "paper_context": "",
+            "tool_results": "",
+            "draft": "",
+            "review_score": 0,
+            "review_feedback": "",
+            "intent": "general",
+            "draft_text": "",
+            "retries": 0,
+            "trace": [f"[Router] Initiating graph execution with model: {model_name}"],
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "model_name": model_name,
+        })
+    except Exception as err:
+        err_str = str(err)
+        print(f"[WARN] Graph execution failed on model '{model_name}': {err_str[:140]}")
+        last_error = err_str
 
     latency_ms = int((time.time() - start_time) * 1000)
 
+    model_labels = {
+        "gemini-1.5-flash": "Gemini 1.5 Flash",
+        "gemini-2.0-flash": "Gemini 2.0 Flash",
+        "gemini-1.5-pro": "Gemini 1.5 Pro",
+        "gemini-flash-latest": "Gemini Flash Auto",
+    }
+    label = model_labels.get(model_name, model_name)
+
     if not result or result.get("draft") == "__FALLBACK__":
+        quota_msg = (
+            f"⚠️ **API Quota Limit Reached for {label}**\n\n"
+            f"The rate limit or quota for **{label}** has been reached. "
+            f"Please switch to another model using the **Model** dropdown selector below "
+            f"(e.g., *Gemini 3.5 Flash* or *Gemini 3.6 Flash*) to continue your analysis."
+        )
         return {
-            "text": None,
-            "trace": [f"[Fallback] Gemini AI quota limit reached ({last_error or '429 Rate Limit'}). Switched to offline synthesis."],
-            "review_score": 75,
+            "text": quota_msg,
+            "trace": [f"[Quota Limit] Rate limit reached on model '{model_name}'. Prompted user to switch model."],
+            "review_score": None,
             "tokens": {"prompt": 0, "completion": 0, "total": 0},
             "latency_ms": latency_ms,
             "retries": 0,

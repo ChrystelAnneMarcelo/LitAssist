@@ -3,14 +3,16 @@
 import { useState } from "react";
 import {
   BookOpen, ChevronDown, ChevronRight, Loader2, Sparkles,
-  Target, FlaskConical, Lightbulb, AlertCircle, Copy, Check, FileText,
+  Target, FlaskConical, Lightbulb, AlertCircle, Copy, Check, FileText, Award,
 } from "lucide-react";
-import type { Paper } from "@/types";
+import type { Paper, Project } from "@/types";
+import ScoringRubricModal from "@/components/ScoringRubricModal";
 import styles from "./styles.module.css";
 
 interface Props {
   papers: Paper[];
   onAddPaper: (paper: Paper) => void;
+  project?: Project;
 }
 
 interface AnalysisResult {
@@ -54,13 +56,14 @@ function generateResult(paper: Paper): AnalysisResult {
   };
 }
 
-export default function AnalyzeSummarizeView({ papers }: Props) {
+export default function AnalyzeSummarizeView({ papers, project }: Props) {
   const [selectedId, setSelectedId] = useState<string>(papers[0]?.id ?? "");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(["summary", "keyFindings"]));
   const [copied, setCopied] = useState(false);
   const [step, setStep] = useState(0);
+  const [showRubricModal, setShowRubricModal] = useState(false);
 
   const selectedPaper = papers.find((p) => p.id === selectedId);
 
@@ -238,10 +241,17 @@ export default function AnalyzeSummarizeView({ papers }: Props) {
                   </div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
-                  <div className={styles.scoreBox}>
-                    <div className={styles.scoreValue}>{result.relevanceScore}</div>
-                    <div className={styles.scoreLabel}>SCORE</div>
-                  </div>
+                  <button
+                    onClick={() => setShowRubricModal(true)}
+                    className={styles.scoreBox}
+                    style={{ cursor: "pointer", border: "1px solid rgba(201,169,110,0.3)" }}
+                    title="Click to view appraisal scoring rubric"
+                  >
+                    <div className={styles.scoreValue}>{result.relevanceScore}%</div>
+                    <div className={styles.scoreLabel} style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                      <Award size={9} /> RUBRIC
+                    </div>
+                  </button>
                   <button onClick={handleCopy} className={styles.copyBtn}>
                     {copied
                       ? <Check size={11} style={{ color: "var(--primary)" }} />
@@ -305,6 +315,8 @@ export default function AnalyzeSummarizeView({ papers }: Props) {
           </div>
         )}
       </div>
+
+      {showRubricModal && <ScoringRubricModal project={project} onClose={() => setShowRubricModal(false)} />}
     </div>
   );
 }

@@ -22,6 +22,7 @@ interface FileListViewProps {
   onClearSelection: () => void;
   onAddPaper: (paper: Paper) => void;
   onDeletePaper?: (paperId: string) => void;
+  onUpdateDescription?: (description: string) => void;
   theme?: "dark" | "light";
   onToggleTheme?: () => void;
 }
@@ -35,6 +36,7 @@ export default function FileListView({
   onClearSelection,
   onAddPaper,
   onDeletePaper,
+  onUpdateDescription,
   theme = "dark",
   onToggleTheme,
 }: FileListViewProps) {
@@ -46,6 +48,8 @@ export default function FileListView({
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<"title" | "authors" | "year" | "added">("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [isEditingDesc, setIsEditingDesc] = useState(false);
+  const [descInput, setDescInput] = useState(project.description || "");
 
   const selectedPapers = project.papers.filter((p) => selectedPaperIds.has(p.id));
 
@@ -76,7 +80,9 @@ export default function FileListView({
     <div className={styles.panel}>
       {/* Top bar */}
       <div className={styles.topBar}>
-        <span className={styles.projectTitle}>{project.name}</span>
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+          <span className={styles.projectTitle}>{project.name}</span>
+        </div>
         <div className={styles.topBarRight}>
           <span className={styles.fileCount}>{project.papers.length} files in folder</span>
           <div className={styles.toolbarBtns}>
@@ -109,6 +115,106 @@ export default function FileListView({
             )}
           </div>
         </div>
+      </div>
+
+      {/* Research Topic / Scope Banner */}
+      <div
+        style={{
+          padding: "8px 20px",
+          background: "rgba(255, 255, 255, 0.02)",
+          borderBottom: "1px solid var(--border)",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          fontSize: 12,
+        }}
+      >
+        <span style={{ color: "var(--primary)", fontWeight: 600, fontSize: 11, letterSpacing: "0.05em", flexShrink: 0 }}>
+          RESEARCH SCOPE:
+        </span>
+        {isEditingDesc ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+            <input
+              type="text"
+              value={descInput}
+              onChange={(e) => setDescInput(e.target.value)}
+              placeholder="e.g. AI-based methods for detecting diseases and deficiencies in lettuce crops"
+              style={{
+                flex: 1,
+                background: "var(--background)",
+                border: "1px solid var(--primary)",
+                borderRadius: "var(--radius-sm)",
+                padding: "2px 8px",
+                color: "var(--foreground)",
+                fontSize: 12,
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (onUpdateDescription) onUpdateDescription(descInput.trim());
+                  setIsEditingDesc(false);
+                } else if (e.key === "Escape") {
+                  setIsEditingDesc(false);
+                }
+              }}
+              autoFocus
+            />
+            <button
+              onClick={() => {
+                if (onUpdateDescription) onUpdateDescription(descInput.trim());
+                setIsEditingDesc(false);
+              }}
+              style={{
+                background: "var(--primary)",
+                color: "#fff",
+                border: "none",
+                borderRadius: "var(--radius-sm)",
+                padding: "2px 8px",
+                fontSize: 11,
+                cursor: "pointer",
+              }}
+            >
+              Save
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+            <span
+              onClick={() => {
+                setDescInput(project.description || "");
+                setIsEditingDesc(true);
+              }}
+              style={{
+                color: project.description ? "var(--foreground)" : "var(--muted-foreground)",
+                fontStyle: project.description ? "normal" : "italic",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                cursor: "pointer",
+              }}
+              title="Click to edit research topic"
+            >
+              {project.description || "No research topic specified yet — click to add scope..."}
+            </span>
+            <button
+              onClick={() => {
+                setDescInput(project.description || "");
+                setIsEditingDesc(true);
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--muted-foreground)",
+                cursor: "pointer",
+                padding: 2,
+                display: "flex",
+                alignItems: "center",
+              }}
+              title="Edit Research Scope"
+            >
+              <FileText size={12} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Optional Search / Filter Bar */}
@@ -326,7 +432,7 @@ export default function FileListView({
           )}
         </div>
       ) : (
-        <AnalyzeSummarizeView papers={project.papers} onAddPaper={onAddPaper} />
+        <AnalyzeSummarizeView papers={project.papers} onAddPaper={onAddPaper} project={project} />
       )}
 
       {/* Modals */}
@@ -337,7 +443,7 @@ export default function FileListView({
         <CompareModal papers={selectedPapers} onClose={() => setShowCompare(false)} />
       )}
       {activeDetailPaper && (
-        <PaperDetailModal paper={activeDetailPaper} onClose={() => setActiveDetailPaper(null)} />
+        <PaperDetailModal paper={activeDetailPaper} onClose={() => setActiveDetailPaper(null)} project={project} />
       )}
     </div>
   );

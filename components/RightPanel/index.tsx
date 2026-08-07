@@ -1,15 +1,14 @@
 "use client";
 
-import { MessageSquare, StickyNote, FileText } from "lucide-react";
+import { MessageSquare, FileText } from "lucide-react";
 import type { Project, Paper, RightTab, ChatSession, ChatMessage } from "@/types";
 import ChatView from "./ChatView";
-import NotesView from "./NotesView";
 import styles from "./styles.module.css";
 
 interface RightPanelProps {
   project: Project;
-  tab: RightTab;
-  onTabChange: (tab: RightTab) => void;
+  tab?: RightTab;
+  onTabChange?: (tab: RightTab) => void;
   selectedPapers: Paper[];
   activeChatSession?: ChatSession | null;
   onUpdateChatMessages?: (chatId: string, messages: ChatMessage[], newTitle?: string) => void;
@@ -18,8 +17,6 @@ interface RightPanelProps {
 
 export default function RightPanel({
   project,
-  tab,
-  onTabChange,
   selectedPapers,
   activeChatSession,
   onUpdateChatMessages,
@@ -27,20 +24,11 @@ export default function RightPanel({
 }: RightPanelProps) {
   return (
     <div className={styles.panel}>
-      {/* Header tabs */}
+      {/* Header */}
       <div className={styles.header}>
-        <button
-          className={`${styles.tab} ${tab === "ask" ? styles.active : ""}`}
-          onClick={() => onTabChange("ask")}
-        >
-          <MessageSquare size={12} /> Ask AI
-        </button>
-        <button
-          className={`${styles.tab} ${tab === "notes" ? styles.active : ""}`}
-          onClick={() => onTabChange("notes")}
-        >
-          <StickyNote size={12} /> Notes
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 500, color: "var(--foreground)" }}>
+          <MessageSquare size={13} style={{ color: "var(--primary)" }} /> Ask AI
+        </div>
 
         {selectedPapers.length > 0 && (
           <div className={styles.selectedBadge}>
@@ -50,18 +38,14 @@ export default function RightPanel({
         )}
       </div>
 
-      {/* Tab content */}
-      {tab === "ask" ? (
-        <ChatView
-          project={project}
-          selectedPapers={selectedPapers}
-          activeChatSession={activeChatSession}
-          onUpdateChatMessages={onUpdateChatMessages}
-          onNewChat={onNewChat}
-        />
-      ) : (
-        <NotesView project={project} />
-      )}
+      {/* Chat View */}
+      <ChatView
+        project={project}
+        selectedPapers={selectedPapers}
+        activeChatSession={activeChatSession}
+        onUpdateChatMessages={onUpdateChatMessages}
+        onNewChat={onNewChat}
+      />
     </div>
   );
 }

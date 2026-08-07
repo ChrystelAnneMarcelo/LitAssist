@@ -25,6 +25,7 @@ class ChatInput(BaseModel):
     question: str = Field(..., min_length=1, description="Cannot be empty")
     papers: list[Paper] = Field(default_factory=list)
     projectName: str = "Literature Review"
+    projectDescription: str = ""
     modelName: str = Field(default="gemini-1.5-flash", description="Gemini model ID for synthesis and review")
 
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FolderOpen, MessageSquare, Plus, BookMarked, Sparkles, ChevronDown, Sun, Moon, Trash2 } from "lucide-react";
+import { FolderOpen, MessageSquare, Plus, BookMarked, Sparkles, ChevronDown, Sun, Moon, Trash2, Search, X } from "lucide-react";
 import type { Project, SidebarTab, ChatSession } from "@/types";
 import AddProjectModal from "./AddProjectModal";
 import styles from "./styles.module.css";
@@ -14,7 +14,7 @@ interface LeftSidebarProps {
   sidebarTab: SidebarTab;
   onTabChange: (tab: SidebarTab) => void;
   onSelectProject: (id: string) => void;
-  onAddProject: (name: string) => void;
+  onAddProject: (name: string, description: string) => void;
   onDeleteProject?: (id: string) => void;
   onSelectChat?: (chatId: string) => void;
   onNewChat?: () => void;
@@ -43,6 +43,19 @@ export default function LeftSidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [hoveredProjectId, setHoveredProjectId] = useState<string | null>(null);
   const [hoveredChatId, setHoveredChatId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredProjects = projects.filter((p) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return p.name.toLowerCase().includes(q) || (p.description && p.description.toLowerCase().includes(q));
+  });
+
+  const filteredChats = chatSessions.filter((c) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return c.title.toLowerCase().includes(q);
+  });
 
   return (
     <>
@@ -119,6 +132,25 @@ export default function LeftSidebar({
               </button>
             </div>
 
+            {/* Search bar */}
+            <div className={styles.searchContainer}>
+              <div className={styles.searchBox}>
+                <Search size={11} className={styles.searchIcon} />
+                <input
+                  type="text"
+                  placeholder={sidebarTab === "files" ? "Search projects…" : "Search chats…"}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={styles.searchInput}
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")} className={styles.clearSearchBtn} title="Clear search">
+                    <X size={10} />
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Scroll area */}
             <div className={styles.scrollArea}>
               {sidebarTab === "files" ? (
@@ -130,7 +162,7 @@ export default function LeftSidebar({
                     </button>
                   </div>
 
-                  {projects.map((project) => {
+                  {filteredProjects.map((project) => {
                     const isActive = project.id === activeProjectId;
                     const isHovered = hoveredProjectId === project.id;
                     return (
@@ -180,6 +212,12 @@ export default function LeftSidebar({
                     );
                   })}
 
+                  {filteredProjects.length === 0 && (
+                    <div style={{ padding: "12px 16px", fontSize: 11, color: "var(--muted-foreground)", fontStyle: "italic" }}>
+                      No projects found
+                    </div>
+                  )}
+
                   <button
                     className={styles.addProjectBtn}
                     onClick={() => setShowAddProject(true)}
@@ -199,7 +237,7 @@ export default function LeftSidebar({
                     )}
                   </div>
 
-                  {chatSessions.map((chat) => {
+                  {filteredChats.map((chat) => {
                     const isActive = chat.id === activeChatId;
                     const isHovered = hoveredChatId === chat.id;
                     return (
@@ -245,6 +283,12 @@ export default function LeftSidebar({
                       </div>
                     );
                   })}
+
+                  {filteredChats.length === 0 && (
+                    <div style={{ padding: "12px 16px", fontSize: 11, color: "var(--muted-foreground)", fontStyle: "italic" }}>
+                      No chats found
+                    </div>
+                  )}
 
                   {onNewChat && (
                     <button
