@@ -432,7 +432,7 @@ export default function FileListView({
           )}
         </div>
       ) : (
-        <AnalyzeSummarizeView papers={project.papers} onAddPaper={onAddPaper} />
+        <AnalyzeSummarizeView papers={project.papers} onAddPaper={onAddPaper} project={project} />
       )}
 
       {/* Modals */}
@@ -443,7 +443,7 @@ export default function FileListView({
         <CompareModal papers={selectedPapers} onClose={() => setShowCompare(false)} />
       )}
       {activeDetailPaper && (
-        <PaperDetailModal paper={activeDetailPaper} onClose={() => setActiveDetailPaper(null)} />
+        <PaperDetailModal paper={activeDetailPaper} onClose={() => setActiveDetailPaper(null)} project={project} />
       )}
     </div>
   );

@@ -84,6 +84,58 @@
   background: var(--sidebar-accent);
 }
 
+/* ─── Search Bar ── */
+.searchContainer {
+  padding: 8px 12px 4px 12px;
+  flex-shrink: 0;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--sidebar-border);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  transition: border-color 0.15s;
+}
+.searchBox:focus-within {
+  border-color: var(--primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.searchIcon {
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  color: var(--sidebar-foreground);
+  outline: none;
+  min-width: 0;
+}
+
+.clearSearchBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground);
+  padding: 2px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.clearSearchBtn:hover {
+  color: var(--foreground);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* ─── Scroll area ── */
 .scrollArea {
   flex: 1;

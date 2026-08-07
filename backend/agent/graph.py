@@ -344,10 +344,10 @@ async def router_node(state: AgentState) -> dict:
     q = state["question"].lower()
 
     # Intent classification — ordered from most specific to least
-    review_kws = ["score this", "review this", "grade this", "score my draft", "review my draft",
-                  "evaluate this draft", "check my draft", "rate this", "peer review"]
+    review_draft_kws = ["score my draft", "review my draft", "grade my draft", "evaluate my draft", "check my draft", "peer review my draft"]
     analyze_kws = ["compare", "comparison", "difference", "findings", "score", "relevance",
-                   "methodology", "analyze", "analysis", "evaluate", "contrast"]
+                   "methodology", "analyze", "analysis", "evaluate", "contrast", "appraise", "rate", "grade",
+                   "score this", "review this", "grade this", "rate this", "appraise this"]
     summarize_kws = ["summarize", "summary", "summarise", "overview", "brief",
                      "outline", "abstract", "key points"]
 
@@ -355,7 +355,7 @@ async def router_node(state: AgentState) -> dict:
     user_draft = state.get("draft_text", "").strip()
     has_pasted_draft = len(user_draft.split()) > 50
 
-    if has_pasted_draft or any(kw in q for kw in review_kws):
+    if has_pasted_draft or any(kw in q for kw in review_draft_kws):
         intent = "review_only"
     elif any(kw in q for kw in analyze_kws):
         intent = "analyze"
@@ -499,8 +499,10 @@ async def extract_node(state: AgentState) -> dict:
 
     tool_results = state.get("tool_results", "")
     tool_context = ""
+    tool_note = ""
     if tool_results and not tool_results.startswith("__SEARCH__:") and not tool_results.startswith("Tool Error"):
         tool_context = "\n\n## Additional Papers Retrieved by Agent (Multi-Database Search)\n\n" + tool_results
+        tool_note = " + web search results"
 
     # Build project header context
     proj_name = state.get("project_name", "Literature Review")
@@ -510,6 +512,8 @@ async def extract_node(state: AgentState) -> dict:
         scope_header += f"Research Scope / Question: {proj_desc}\n\n"
     else:
         scope_header += "\n"
+
+    elapsed = int((time.time() - start) * 1000)
 
     return {
         "paper_context": scope_header + selected_context + tool_context,
@@ -537,13 +541,20 @@ async def synthesize_node(state: AgentState) -> dict:
     # Intent-aware prompt shaping
     if intent == "analyze" or any(kw in state['question'].lower() for kw in ["score", "rate", "appraise", "evaluate", "grade"]):
         task_instruction = (
-            "Perform a detailed paper appraisal and analytical breakdown.\n"
-            f"If evaluating/scoring specific paper(s) for the project topic '{proj_name}'"
-            + (f" (Scope: {proj_desc})" if proj_desc else "") + " :\n"
-            "1. **Topic Relevance Score (0–100%)**: Evaluate how directly the paper's focus aligns with the research scope.\n"
-            "2. **Methodological Rigor Score (0–100%)**: Assess dataset quality, empirical design, algorithms, and validation metrics.\n"
-            "3. **Overall RRL Score (0–100%)**: Provide a final score with key strengths, limitations, and RRL contribution.\n"
-            "Use clear markdown headers and bullet points."
+            "Perform a detailed paper appraisal and analytical breakdown for the user-selected paper(s) provided in the context.\n"
+            f"Evaluate and score each paper specifically against the project scope '{proj_name}'"
+            + (f" (Scope: {proj_desc})" if proj_desc else "") + ".\n\n"
+            "Structure your appraisal for each paper as follows:\n"
+            "### 1. Topic Relevance Score (0–100%)\n"
+            "* Assess how directly the paper's research questions, core focus, and findings align with the project research scope.\n\n"
+            "### 2. Methodological Rigor Score (0–100%)\n"
+            "* Evaluate the soundness, quality, and analytical validity of the paper's research design, evidence, and execution.\n"
+            "* Assess data/evidence quality (sample adequacy, dataset integrity, or source reliability), conceptual framework clarity, validation robustness, logical coherence, and procedure/citation transparency.\n\n"
+            "### 3. Overall RRL Score (0–100%)\n"
+            "* Key Strengths: Identify major contributions, findings, or analytical insights.\n"
+            "* Limitations: Discuss methodological gaps, limitations, or scope/generalizability constraints.\n"
+            "* RRL Contribution: Explain how this paper advances the literature review.\n\n"
+            "Do NOT ask the user to provide paper content if paper context is already present in the prompt. Perform the complete appraisal directly on the provided paper context."
         )
     elif intent == "summarize":
         task_instruction = (
@@ -771,53 +782,52 @@ async def run_litassist_graph(
     start_time = time.time()
     app = build_graph()
 
-    models_to_try = [model_name] + [m for m in ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-flash-latest"] if m != model_name]
-
-    result = None
-    last_error = None
-    active_model = model_name
-
-    for target_model in models_to_try:
-        try:
-            active_model = target_model
-            result = await app.ainvoke({
-                "question": question,
-                "project_name": project_name,
-                "project_description": project_description,
-                "papers": papers,
-                "paper_context": "",
-                "tool_results": "",
-                "draft": "",
-                "review_score": 0,
-                "review_feedback": "",
-                "intent": "general",
-                "draft_text": "",
-                "retries": 0,
-                "trace": [f"[Router] Initiating graph execution with model: {target_model}"],
-                "prompt_tokens": 0,
-                "completion_tokens": 0,
-                "model_name": target_model,
-            })
-            if result and result.get("draft") and result.get("draft") != "__FALLBACK__":
-                break  # Got a real draft — stop trying more models
-            elif result and result.get("draft") == "__FALLBACK__":
-                continue  # Soft fallback (no API key / offline) — try next model
-        except Exception as err:
-            err_str = str(err)
-            print(f"[WARN] Graph execution failed on model '{target_model}': {err_str[:140]}")
-            last_error = err_str
-            if "RESOURCE_EXHAUSTED" in err_str or "429" in err_str or "NOT_FOUND" in err_str:
-                continue
-            else:
-                break
+    try:
+        active_model = model_name
+        result = await app.ainvoke({
+            "question": question,
+            "project_name": project_name,
+            "project_description": project_description,
+            "papers": papers,
+            "paper_context": "",
+            "tool_results": "",
+            "draft": "",
+            "review_score": 0,
+            "review_feedback": "",
+            "intent": "general",
+            "draft_text": "",
+            "retries": 0,
+            "trace": [f"[Router] Initiating graph execution with model: {model_name}"],
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "model_name": model_name,
+        })
+    except Exception as err:
+        err_str = str(err)
+        print(f"[WARN] Graph execution failed on model '{model_name}': {err_str[:140]}")
+        last_error = err_str
 
     latency_ms = int((time.time() - start_time) * 1000)
 
+    model_labels = {
+        "gemini-2.5-flash": "Gemini 2.5 Flash",
+        "gemini-3.5-flash": "Gemini 3.5 Flash",
+        "gemini-3.6-flash": "Gemini 3.6 Flash",
+        "gemini-flash-latest": "Gemini Flash Auto",
+    }
+    label = model_labels.get(model_name, model_name)
+
     if not result or result.get("draft") == "__FALLBACK__":
+        quota_msg = (
+            f"⚠️ **API Quota Limit Reached for {label}**\n\n"
+            f"The rate limit or quota for **{label}** has been reached. "
+            f"Please switch to another model using the **Model** dropdown selector below "
+            f"(e.g., *Gemini 3.5 Flash* or *Gemini 3.6 Flash*) to continue your analysis."
+        )
         return {
-            "text": None,
-            "trace": [f"[Fallback] Gemini AI quota limit reached ({last_error or '429 Rate Limit'}). Switched to offline synthesis."],
-            "review_score": 75,
+            "text": quota_msg,
+            "trace": [f"[Quota Limit] Rate limit reached on model '{model_name}'. Prompted user to switch model."],
+            "review_score": None,
             "tokens": {"prompt": 0, "completion": 0, "total": 0},
             "latency_ms": latency_ms,
             "retries": 0,

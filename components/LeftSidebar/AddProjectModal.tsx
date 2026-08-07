@@ -36,7 +36,7 @@ export default function AddProjectModal({ onClose, onAdd }: AddProjectModalProps
           <input
             autoFocus
             className={styles.input}
-            placeholder="e.g. Lettuce disease detection"
+            placeholder="e.g. AI-Based Disease Detection"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -45,7 +45,7 @@ export default function AddProjectModal({ onClose, onAdd }: AddProjectModalProps
           <textarea
             className={styles.input}
             style={{ height: 72, resize: "none", paddingTop: 8, paddingBottom: 8, lineHeight: 1.4 }}
-            placeholder="e.g. Non-invasive AI methods for detecting diseases and nutrient deficiencies in lettuce crops"
+            placeholder="e.g. Deep learning architectures and non-invasive methods for early anomaly detection"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), handleSubmit())}
