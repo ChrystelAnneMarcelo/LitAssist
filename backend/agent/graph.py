@@ -1,11 +1,14 @@
 """
 backend/agent/graph.py
-LangGraph StateGraph — 5-node agent pipeline for LitAssist.
+LangGraph StateGraph — Multi-Agent Router Pipeline for LitAssist.
 
 Pipeline:
-  PlannerNode → (conditional) → SearchToolNode → ExtractNode → SynthesizeNode → ReviewerNode
-                                                      ↑                              ↓
-                                                      └─── retry loop (max 3) ───────┘
+  RouterNode (entry) → intent classification
+    ├── analyze  → PlannerNode → SearchToolNode → ExtractNode → SynthesizeNode → ReviewerNode
+    ├── summarize→ ExtractNode → SynthesizeNode → ReviewerNode
+    └── general  → PlannerNode → SearchToolNode → ExtractNode → SynthesizeNode → ReviewerNode
+
+  ReviewerNode retry loop (max 3): SynthesizeNode ← score < 80
 """
 import asyncio
 import json
@@ -43,6 +46,7 @@ class AgentState(TypedDict):
     prompt_tokens: int
     completion_tokens: int
     model_name: str
+    intent: str  # Routed intent: "analyze" | "summarize" | "general"
 
 
 MAX_RETRIES = 3
@@ -323,6 +327,37 @@ async def openalex_search_tool(query: str) -> str:
         return f"Tool Error: {e}"
 
 
+# ─── Node 0: Router (Intent Classifier) ──────────────────────
+async def router_node(state: AgentState) -> dict:
+    """
+    Entry-point RouterNode: Classifies the user's request intent and routes
+    to the appropriate sub-pipeline:
+      - 'analyze'   → compare papers, extract findings, score relevance
+      - 'summarize' → single or multi-paper summarization
+      - 'general'   → general RRL synthesis, chat, or search
+    """
+    start = time.time()
+    q = state["question"].lower()
+    papers = state.get("papers", [])
+
+    # Intent classification by keyword signal
+    analyze_kws = ["compare", "comparison", "difference", "findings", "score", "relevance", "methodology", "analyze", "analysis", "evaluate", "contrast"]
+    summarize_kws = ["summarize", "summary", "summarise", "overview", "brief", "outline", "abstract", "key points"]
+
+    if any(kw in q for kw in analyze_kws):
+        intent = "analyze"
+    elif any(kw in q for kw in summarize_kws):
+        intent = "summarize"
+    else:
+        intent = "general"
+
+    elapsed = int((time.time() - start) * 1000)
+    return {
+        "intent": intent,
+        "trace": [f"[RouterNode +{elapsed}ms] Intent classified as '{intent}' for: \"{state['question'][:60]}...\""],
+    }
+
+
 # ─── Node 1: Planner ──────────────────────────────────────────
 async def planner_node(state: AgentState) -> dict:
     """
@@ -334,10 +369,15 @@ async def planner_node(state: AgentState) -> dict:
     start = time.time()
     papers = state.get("papers", [])
     q = state["question"].lower()
+    intent = state.get("intent", "general")
 
+    # For summarize intent with existing papers, skip tool search
     needs_tool = (
         len(papers) == 0
-        or any(kw in q for kw in ["search", "find", "latest", "recent", "look up", "additional", "more paper"])
+        or (
+            intent not in ("summarize",)
+            and any(kw in q for kw in ["search", "find", "latest", "recent", "look up", "additional", "more paper"])
+        )
     )
 
     elapsed = int((time.time() - start) * 1000)
@@ -350,12 +390,12 @@ async def planner_node(state: AgentState) -> dict:
         ).strip()
         return {
             "tool_results": f"__SEARCH__:{search_query}",
-            "trace": [f"[PlannerNode +{elapsed}ms] Agent decided to invoke SearchTool for: \"{search_query}\""],
+            "trace": [f"[PlannerNode +{elapsed}ms] ({intent}) Agent decided to invoke SearchTool for: \"{search_query}\""],
         }
 
     return {
         "tool_results": "",
-        "trace": [f"[PlannerNode +{elapsed}ms] Agent using existing {len(papers)} paper(s) — no tool call needed."],
+        "trace": [f"[PlannerNode +{elapsed}ms] ({intent}) Agent using existing {len(papers)} paper(s) — no tool call needed."],
     }
 
 
@@ -460,8 +500,9 @@ async def extract_node(state: AgentState) -> dict:
 
 # ─── Node 4: Synthesize ───────────────────────────────────────
 async def synthesize_node(state: AgentState) -> dict:
-    """Calls Gemini to generate an RRL draft using the built context."""
+    """Calls Gemini to generate an RRL draft using the built context, tailored by intent."""
     start = time.time()
+    intent = state.get("intent", "general")
 
     retry_note = ""
     if state.get("retries", 0) > 0:
@@ -471,15 +512,34 @@ async def synthesize_node(state: AgentState) -> dict:
             "Please improve accordingly."
         )
 
+    # Intent-aware prompt shaping
+    if intent == "analyze":
+        task_instruction = (
+            "Perform a structured analytical breakdown: "
+            "compare methodologies, evaluate findings, score relevance, and identify research gaps. "
+            "Use structured headers, comparison tables where applicable, and cite all papers."
+        )
+    elif intent == "summarize":
+        task_instruction = (
+            "Provide a clear, concise, and academic synthesis summary. "
+            "Capture abstract, key contributions, methodology, and relevance of each paper. "
+            "Use numbered sections per paper and cite author names."
+        )
+    else:
+        task_instruction = (
+            "Write a highly academic, structured, and insightful RRL response. "
+            "Use clear markdown formatting with headers and bullet points. "
+            "Cite author names when referring to specific papers."
+        )
+
     prompt = (
         f"You are LitAssist, an expert AI Literature Review (RRL) Analysis Assistant.\n"
-        f"Project: \"{state.get('project_name', 'Literature Review')}\".\n\n"
+        f"Project: \"{state.get('project_name', 'Literature Review')}\".\n"
+        f"Request Type: {intent.upper()}\n\n"
         f"{state.get('paper_context', '')}\n\n"
         f"User Question: \"{state['question']}\"\n"
         f"{retry_note}\n\n"
-        "Write a highly academic, structured, and insightful RRL response. "
-        "Use clear markdown formatting with headers and bullet points. "
-        "Cite author names when referring to specific papers."
+        f"{task_instruction}"
     )
 
     text = ""
@@ -622,17 +682,33 @@ def should_retry(state: AgentState) -> str:
     return "synthesize"
 
 
+# ─── Routing: router → planner (for analyze/general) or extract (for summarize) ─
+def router_decision(state: AgentState) -> str:
+    intent = state.get("intent", "general")
+    papers = state.get("papers", [])
+    # Summarize with existing papers: skip straight to extract (no search needed)
+    if intent == "summarize" and len(papers) > 0:
+        return "extract"
+    # Analyze or general: go through planner for search decision
+    return "planner"
+
+
 # ─── Build and compile graph ───────────────────────────────────
 def build_graph():
     graph = StateGraph(AgentState)
 
+    graph.add_node("router", router_node)
     graph.add_node("planner", planner_node)
     graph.add_node("searchTool", search_tool_node)
     graph.add_node("extract", extract_node)
     graph.add_node("synthesize", synthesize_node)
     graph.add_node("review", review_node)
 
-    graph.set_entry_point("planner")
+    graph.set_entry_point("router")
+    graph.add_conditional_edges("router", router_decision, {
+        "planner": "planner",
+        "extract": "extract",
+    })
     graph.add_conditional_edges("planner", planner_decision, {
         "searchTool": "searchTool",
         "extract": "extract",
@@ -668,7 +744,7 @@ async def run_litassist_graph(
     for target_model in models_to_try:
         try:
             active_model = target_model
-            res = await app.ainvoke({
+            result = await app.ainvoke({
                 "question": question,
                 "project_name": project_name,
                 "papers": papers,
@@ -677,6 +753,7 @@ async def run_litassist_graph(
                 "draft": "",
                 "review_score": 0,
                 "review_feedback": "",
+                "intent": "general",
                 "retries": 0,
                 "trace": [f"[Router] Initiating graph execution with model: {target_model}"],
                 "prompt_tokens": 0,
