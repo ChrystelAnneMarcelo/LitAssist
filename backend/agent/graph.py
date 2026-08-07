@@ -437,10 +437,10 @@ async def extract_node(state: AgentState) -> dict:
     tool_results = state.get("tool_results", "")
     tool_context = ""
     if tool_results and not tool_results.startswith("__SEARCH__:") and not tool_results.startswith("Tool Error"):
-        tool_context = "\n\n## Additional Papers Retrieved by Agent (Crossref Tool)\n\n" + tool_results
+        tool_context = "\n\n## Additional Papers Retrieved by Agent (Multi-Database Search)\n\n" + tool_results
 
     elapsed = int((time.time() - start) * 1000)
-    tool_note = " + Crossref tool results" if tool_context else ""
+    tool_note = " + multi-database search results" if tool_context else ""
 
     return {
         "paper_context": selected_context + tool_context,
