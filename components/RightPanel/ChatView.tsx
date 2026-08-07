@@ -22,9 +22,10 @@ const SUGGESTIONS = [
 ];
 
 const MODELS = [
-  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", note: "Fastest" },
-  { id: "gemini-2.5-pro",   label: "Gemini 2.5 Pro",   note: "Deepest" },
-  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Lite", note: "Lightweight" },
+  { id: "gemini-2.5-flash",    label: "Gemini 2.5 Flash", note: "Recommended" },
+  { id: "gemini-3.5-flash",    label: "Gemini 3.5 Flash", note: "Next-Gen" },
+  { id: "gemini-3.6-flash",    label: "Gemini 3.6 Flash", note: "High Precision" },
+  { id: "gemini-flash-latest", label: "Gemini Flash Auto",note: "Latest Build" },
 ] as const;
 
 type ModelId = typeof MODELS[number]["id"];

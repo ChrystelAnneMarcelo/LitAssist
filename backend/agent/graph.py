@@ -48,10 +48,11 @@ class AgentState(TypedDict):
 MAX_RETRIES = 3
 
 
-MODEL_ALIASES = {
-    "gemini-1.5-flash": "gemini-2.5-flash",
-    "gemini-2.0-flash": "gemini-2.5-flash",
-    "gemini-1.5-pro": "gemini-2.5-flash",
+VALID_MODELS = {
+    "gemini-2.5-flash",
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-flash-latest",
 }
 
 
@@ -60,7 +61,7 @@ def get_llm(model_name: str = "gemini-2.5-flash") -> ChatGoogleGenerativeAI:
     api_key = os.getenv("API_KEY") or os.getenv("GEMINI_API_KEY", "")
     if not api_key:
         raise ValueError("NO_API_KEY")
-    target_model = MODEL_ALIASES.get(model_name, model_name)
+    target_model = model_name if model_name in VALID_MODELS else "gemini-2.5-flash"
     return ChatGoogleGenerativeAI(
         model=target_model,
         google_api_key=api_key,
