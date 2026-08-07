@@ -280,7 +280,20 @@ export default function ChatView({
 
       if (res.ok) {
         const data = await res.json();
-        if (data.text) aiContent = data.text;
+        if (data.text) {
+          let rawText = data.text;
+          if (typeof rawText === "string" && (rawText.startsWith("[{'type':") || rawText.startsWith('[{"type":'))) {
+            try {
+              const match = rawText.match(/['"]text['"]\s*:\s*['"]([\s\S]+?)['"]\s*,\s*['"]extras['"]/);
+              if (match && match[1]) {
+                rawText = match[1].replace(/\\n/g, "\n").replace(/\\'/g, "'").replace(/\\"/g, '"');
+              }
+            } catch (e) {
+              console.warn("Unwrapping text failed", e);
+            }
+          }
+          aiContent = rawText;
+        }
         if (data.trace) agentTrace = data.trace;
         if (data.tokens) agentTokens = data.tokens;
         if (data.reviewScore != null) agentReviewScore = data.reviewScore;
