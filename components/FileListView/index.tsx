@@ -265,7 +265,7 @@ export default function FileListView({
             onClick={() => onCenterTabChange(tab)}
             className={`${styles.centerTab} ${centerTab === tab ? styles.activeTab : ""}`}
           >
-            {tab === "files" ? "Files" : tab === "analyze" ? "Analyze & Summarize" : "My Draft"}
+            {tab === "files" ? "Files" : tab === "analyze" ? "Summarize & Score" : "My Draft"}
           </button>
         ))}
 

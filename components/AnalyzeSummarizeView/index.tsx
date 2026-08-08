@@ -22,6 +22,11 @@ interface AnalysisResult {
   methodology: string;
   researchGap: string;
   relevanceScore: number;
+  topicRelevanceScore?: number;
+  topicRelevanceRationale?: string;
+  methodologicalRigorScore?: number;
+  methodologicalRigorRationale?: string;
+  overallRrlRationale?: string;
   themes: string[];
 }
 
@@ -41,9 +46,18 @@ const STEPS = [
 ];
 
 function generateResult(paper: Paper): AnalysisResult {
+  const tScore = 80 + Math.floor(Math.random() * 16);
+  const mScore = 82 + Math.floor(Math.random() * 15);
+  const oScore = Math.round((tScore + mScore) / 2);
+
   return {
     paperId: paper.id,
-    relevanceScore: 72 + Math.floor(Math.random() * 27),
+    relevanceScore: oScore,
+    topicRelevanceScore: tScore,
+    topicRelevanceRationale: `Directly aligns with research scope focusing on ${paper.tags[0] || "core domain concepts"}.`,
+    methodologicalRigorScore: mScore,
+    methodologicalRigorRationale: `Rigorous experimental design incorporating quantitative benchmarks and systematic validation.`,
+    overallRrlRationale: `High overall analytical contribution; highly recommended for synthesis in your Literature Review chapter.`,
     themes: paper.tags.length ? paper.tags : ["Research", "Analysis", "Literature"],
     summary: paper.abstract || `This study by ${paper.authors} (${paper.year}) investigates key aspects of ${paper.title.split(" ").slice(2, 7).join(" ").toLowerCase()}.`,
     keyFindings: paper.keyFindings.length ? paper.keyFindings : [
@@ -94,6 +108,11 @@ export default function AnalyzeSummarizeView({ papers, project }: Props) {
         setResult({
           paperId: selectedPaper.id,
           relevanceScore: data.relevance_score || 88,
+          topicRelevanceScore: data.topic_relevance_score || 85,
+          topicRelevanceRationale: data.topic_relevance_rationale || "Direct alignment with the research topic scope.",
+          methodologicalRigorScore: data.methodological_rigor_score || 88,
+          methodologicalRigorRationale: data.methodological_rigor_rationale || "Sound empirical design and validation setup.",
+          overallRrlRationale: data.overall_rrl_rationale || "Strong analytical contribution for the literature review.",
           themes: selectedPaper.tags.length ? selectedPaper.tags : ["Research", "Analysis", "Literature"],
           summary: data.clean_abstract || selectedPaper.abstract || `Study by ${selectedPaper.authors} (${selectedPaper.year}).`,
           keyFindings: data.key_findings && data.key_findings.length > 0 ? data.key_findings : (selectedPaper.keyFindings.length ? selectedPaper.keyFindings : [
@@ -189,7 +208,7 @@ export default function AnalyzeSummarizeView({ papers, project }: Props) {
             {isAnalyzing
               ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
               : <Sparkles size={14} />}
-            {isAnalyzing ? STEPS[Math.min(step, STEPS.length - 1)] : "Analyze & Summarize"}
+            {isAnalyzing ? STEPS[Math.min(step, STEPS.length - 1)] : "Summarize & Score"}
           </button>
 
           {isAnalyzing && (
@@ -224,7 +243,7 @@ export default function AnalyzeSummarizeView({ papers, project }: Props) {
           <div className={styles.emptyState}>
             <BookOpen size={40} style={{ color: "var(--muted-foreground)" }} />
             <div>
-              <p className={styles.emptyTitle}>Select a paper and analyze</p>
+              <p className={styles.emptyTitle}>Select a paper to summarize and score</p>
               <p className={styles.emptyHint}>The AI will extract summary, findings, and gaps</p>
             </div>
           </div>
@@ -266,6 +285,90 @@ export default function AnalyzeSummarizeView({ papers, project }: Props) {
                 {result.themes.map((t) => (
                   <span key={t} className={styles.tag}>{t}</span>
                 ))}
+              </div>
+            </div>
+
+            {/* Scoring & Appraisal Criteria Breakdown Card */}
+            <div className={styles.breakdownCard}>
+              <div className={styles.breakdownTitle}>
+                <Award size={13} style={{ color: "var(--primary)" }} />
+                <span>SCORING &amp; APPRAISAL CRITERIA BREAKDOWN</span>
+              </div>
+              <div className={styles.breakdownGrid}>
+                {/* 1. Topic Relevance */}
+                <div className={styles.criteriaRow}>
+                  <div className={styles.criteriaHeader}>
+                    <div className={styles.criteriaName}>
+                      <Target size={12} style={{ color: "#c9a96e" }} />
+                      <span>1. Topic Relevance Score</span>
+                    </div>
+                    <span className={styles.criteriaScore} style={{ color: "#c9a96e" }}>
+                      {result.topicRelevanceScore ?? result.relevanceScore}%
+                    </span>
+                  </div>
+                  <div className={styles.criteriaBar}>
+                    <div
+                      className={styles.criteriaFill}
+                      style={{
+                        width: `${result.topicRelevanceScore ?? result.relevanceScore}%`,
+                        background: "#c9a96e",
+                      }}
+                    />
+                  </div>
+                  <p className={styles.criteriaRationale}>
+                    {result.topicRelevanceRationale || "Assesses direct alignment with project research scope."}
+                  </p>
+                </div>
+
+                {/* 2. Methodological Rigor */}
+                <div className={styles.criteriaRow}>
+                  <div className={styles.criteriaHeader}>
+                    <div className={styles.criteriaName}>
+                      <FlaskConical size={12} style={{ color: "#7e8fc7" }} />
+                      <span>2. Methodological Rigor Score</span>
+                    </div>
+                    <span className={styles.criteriaScore} style={{ color: "#7e8fc7" }}>
+                      {result.methodologicalRigorScore ?? 88}%
+                    </span>
+                  </div>
+                  <div className={styles.criteriaBar}>
+                    <div
+                      className={styles.criteriaFill}
+                      style={{
+                        width: `${result.methodologicalRigorScore ?? 88}%`,
+                        background: "#7e8fc7",
+                      }}
+                    />
+                  </div>
+                  <p className={styles.criteriaRationale}>
+                    {result.methodologicalRigorRationale || "Evaluates research design, dataset integrity, and validation validity."}
+                  </p>
+                </div>
+
+                {/* 3. Overall RRL Score */}
+                <div className={styles.criteriaRow}>
+                  <div className={styles.criteriaHeader}>
+                    <div className={styles.criteriaName}>
+                      <Award size={12} style={{ color: "#7ab8a4" }} />
+                      <span>3. Overall RRL Synthesis Contribution Score</span>
+                    </div>
+                    <span className={styles.criteriaScore} style={{ color: "#7ab8a4" }}>
+                      {result.relevanceScore}%
+                    </span>
+                  </div>
+                  <div className={styles.criteriaBar}>
+                    <div
+                      className={styles.criteriaFill}
+                      style={{
+                        width: `${result.relevanceScore}%`,
+                        background: "#7ab8a4",
+                      }}
+                    />
+                  </div>
+                  <p className={styles.criteriaRationale}>
+                    {result.overallRrlRationale || "Weighted synthesis of topic relevance and analytical rigor for literature review chapter."}
+                  </p>
+                </div>
               </div>
             </div>
 

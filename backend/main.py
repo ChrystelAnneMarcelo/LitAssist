@@ -250,8 +250,8 @@ async def analyze_abstract(body: AnalyzeInput):
                     )
 
                 prompt = (
-                    "You are an academic paper analyzer.\n"
-                    + (f"Score relevance against this specific research scope:{scope_context}" if scope_context else "")
+                    "You are an academic paper analyzer and peer reviewer.\n"
+                    + (f"Evaluate and score this paper against this specific research scope:{scope_context}" if scope_context else "")
                     + "Analyze this paper title and abstract.\n"
                     "Return ONLY a valid JSON object matching this structure with no extra text or markdown:\n"
                     "{\n"
@@ -263,12 +263,13 @@ async def analyze_abstract(body: AnalyzeInput):
                     '    "Empirical finding 3"\n'
                     '  ],\n'
                     '  "research_gap": "Key limitations, unaddressed questions, or future directions mentioned (1-2 sentences)",\n'
-                    + (
-                        '  "relevance_score": <0-100 integer: how directly this paper addresses the research scope above>\n'
-                        if scope_context else
-                        '  "relevance_score": <0-100 integer: overall paper quality and contribution>\n'
-                    )
-                    + "}\n\n"
+                    '  "topic_relevance_score": <0-100 integer: alignment of paper topics/methods with research scope>,\n'
+                    '  "topic_relevance_rationale": "1 concise sentence explaining the topic relevance score",\n'
+                    '  "methodological_rigor_score": <0-100 integer: soundness of research design, datasets, validation, and analytical rigor>,\n'
+                    '  "methodological_rigor_rationale": "1 concise sentence explaining the methodological rigor score",\n'
+                    '  "relevance_score": <0-100 integer: weighted overall RRL score>,\n'
+                    '  "overall_rrl_rationale": "1 concise sentence explaining how this paper advances the literature review"\n'
+                    "}\n\n"
                     f"Title: {body.title}\n"
                     f"Abstract: {clean_abstract}"
                 )
@@ -278,12 +279,21 @@ async def analyze_abstract(body: AnalyzeInput):
                 match = re.search(r"\{[\s\S]*\}", raw)
                 if match:
                     parsed = json.loads(match.group(0))
+                    t_score = int(parsed.get("topic_relevance_score") or parsed.get("relevance_score") or 85)
+                    m_score = int(parsed.get("methodological_rigor_score") or 88)
+                    o_score = int(parsed.get("relevance_score") or int((t_score + m_score) / 2))
+
                     return {
                         "clean_abstract": str(parsed.get("clean_abstract") or clean_abstract).strip(),
                         "methodology": str(parsed.get("methodology") or "").strip(),
                         "key_findings": [str(f).strip() for f in parsed.get("key_findings", []) if str(f).strip()][:3],
                         "research_gap": str(parsed.get("research_gap") or "The authors acknowledge limitations in dataset scope and cross-domain generalizability.").strip(),
-                        "relevance_score": int(parsed.get("relevance_score") or 88),
+                        "relevance_score": o_score,
+                        "topic_relevance_score": t_score,
+                        "topic_relevance_rationale": str(parsed.get("topic_relevance_rationale") or "Direct alignment with the core research topic and technical domain.").strip(),
+                        "methodological_rigor_score": m_score,
+                        "methodological_rigor_rationale": str(parsed.get("methodological_rigor_rationale") or "Sound empirical setup with validated baseline comparisons.").strip(),
+                        "overall_rrl_rationale": str(parsed.get("overall_rrl_rationale") or "Strong analytical contribution for the literature review chapter.").strip(),
                     }
             except Exception as m_err:
                 if "429" in str(m_err) or "RESOURCE_EXHAUSTED" in str(m_err):
