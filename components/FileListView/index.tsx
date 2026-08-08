@@ -26,6 +26,8 @@ interface FileListViewProps {
   onUpdateDescription?: (description: string) => void;
   theme?: "dark" | "light";
   onToggleTheme?: () => void;
+  selectedModel?: string;
+  onModelChange?: (model: string) => void;
 }
 
 export default function FileListView({
@@ -40,6 +42,8 @@ export default function FileListView({
   onUpdateDescription,
   theme = "dark",
   onToggleTheme,
+  selectedModel,
+  onModelChange,
 }: FileListViewProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
@@ -435,7 +439,7 @@ export default function FileListView({
       ) : centerTab === "analyze" ? (
         <AnalyzeSummarizeView papers={project.papers} onAddPaper={onAddPaper} project={project} />
       ) : (
-        <MyDraftView project={project} />
+        <MyDraftView project={project} selectedModel={selectedModel} onModelChange={onModelChange} />
       )}
 
       {/* Modals */}

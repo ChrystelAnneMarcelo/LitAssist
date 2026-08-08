@@ -12,6 +12,8 @@ interface ChatViewProps {
   activeChatSession?: ChatSession | null;
   onUpdateChatMessages?: (chatId: string, messages: ChatMessage[], newTitle?: string) => void;
   onNewChat?: () => void;
+  selectedModel?: string;
+  onModelChange?: (model: string) => void;
 }
 
 const SUGGESTIONS = [
@@ -253,13 +255,21 @@ export default function ChatView({
   activeChatSession,
   onUpdateChatMessages,
   onNewChat,
+  selectedModel: propModel,
+  onModelChange,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [thinkingSeconds, setThinkingSeconds] = useState<number>(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [openTraces, setOpenTraces] = useState<Set<string>>(new Set());
-  const [selectedModel, setSelectedModel] = useState<ModelId>("gemini-2.5-flash");
+  const [localModel, setLocalModel] = useState<ModelId>("gemini-2.5-flash");
+
+  const selectedModel = (propModel as ModelId) ?? localModel;
+  const setSelectedModel = (model: ModelId) => {
+    setLocalModel(model);
+    onModelChange?.(model);
+  };
   const [showRubricModal, setShowRubricModal] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 

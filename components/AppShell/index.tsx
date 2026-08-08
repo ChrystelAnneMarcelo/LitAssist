@@ -238,6 +238,8 @@ export default function AppShell() {
     });
   };
 
+  const [selectedModel, setSelectedModel] = useState<string>("gemini-2.5-flash");
+
   return (
     <div className={styles.shell}>
       <LeftSidebar
@@ -269,6 +271,8 @@ export default function AppShell() {
         onUpdateDescription={handleUpdateProjectDescription}
         theme={theme}
         onToggleTheme={toggleTheme}
+        selectedModel={selectedModel}
+        onModelChange={setSelectedModel}
       />
 
       <RightPanel
@@ -279,6 +283,8 @@ export default function AppShell() {
         activeChatSession={activeChatSession}
         onUpdateChatMessages={handleUpdateChatMessages}
         onNewChat={handleNewChat}
+        selectedModel={selectedModel}
+        onModelChange={setSelectedModel}
       />
     </div>
   );

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import {
   FileText, Sparkles, Copy, Check, RotateCcw, Award,
   CheckCircle2, AlertTriangle, Clock, Hash, HelpCircle,
-  FileCheck, ChevronDown, ChevronRight, Activity, Terminal
+  ChevronDown, ChevronRight, Activity, Terminal
 } from "lucide-react";
 import type { Project } from "@/types";
 import ScoringRubricModal from "@/components/ScoringRubricModal";
@@ -12,6 +12,8 @@ import styles from "./styles.module.css";
 
 interface Props {
   project: Project;
+  selectedModel?: string;
+  onModelChange?: (model: string) => void;
 }
 
 interface ReviewResult {
@@ -24,21 +26,14 @@ interface ReviewResult {
   retries: number;
 }
 
-const STARTER_TEMPLATE = `## Literature Review: Synthesis & Analysis
-
-### 1. Theoretical Framework & Methodological Approaches
-Recent empirical investigations into this field have established key baseline methodologies (Dai et al., 2025). Convolutional neural networks and vision transformer architectures demonstrate high feature representation capabilities when evaluated on benchmark plant disease datasets.
-
-### 2. Experimental Results & Performance Benchmarks
-Comparative quantitative evaluations confirm that hybrid modular models outperform standard baseline networks in accuracy and precision (Nasra et al., 2025). High empirical performance is consistently reported across 5-fold cross-validation benchmarks under controlled environmental conditions.
-
-### 3. Synthesis of Critical Research Gaps
-Despite high classification accuracy on benchmark datasets, significant research gaps remain regarding real-world generalizability under domain shifts, operational memory footprints on resource-constrained edge hardware, and visual model explainability for domain expert validation. Addressing these gaps provides strong theoretical justification for further investigation.`;
-
-export default function MyDraftView({ project }: Props) {
+export default function MyDraftView({ project, selectedModel: propModel, onModelChange }: Props) {
   const localStorageKey = `litassist_draft_${project.id}`;
 
   const [draftText, setDraftText] = useState<string>("");
+  const [localModel, setLocalModel] = useState<string>("gemini-2.5-flash");
+
+  const currentModel = propModel ?? localModel;
+  const setModel = onModelChange ?? setLocalModel;
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
   const [copied, setCopied] = useState(false);
@@ -60,13 +55,6 @@ export default function MyDraftView({ project }: Props) {
   const handleDraftChange = (text: string) => {
     setDraftText(text);
     localStorage.setItem(localStorageKey, text);
-  };
-
-  const handleInsertTemplate = () => {
-    const nextText = draftText.trim()
-      ? `${draftText}\n\n${STARTER_TEMPLATE}`
-      : STARTER_TEMPLATE;
-    handleDraftChange(nextText);
   };
 
   const handleCopy = () => {
@@ -108,7 +96,7 @@ export default function MyDraftView({ project }: Props) {
           projectName: project.name,
           projectDescription: project.description,
           papers: project.papers,
-          modelName: "gemini-2.5-flash",
+          modelName: currentModel,
         }),
       });
 
@@ -170,10 +158,6 @@ export default function MyDraftView({ project }: Props) {
         {/* Toolbar */}
         <div className={styles.editorToolbar}>
           <div className={styles.toolbarGroup}>
-            <button onClick={handleInsertTemplate} className={styles.toolBtn} title="Insert structured RRL template">
-              <FileCheck size={12} />
-              <span>Insert Template</span>
-            </button>
             <button onClick={handleCopy} className={styles.toolBtn} disabled={!draftText} title="Copy draft text">
               {copied ? <Check size={12} style={{ color: "var(--primary)" }} /> : <Copy size={12} />}
               <span>{copied ? "Copied" : "Copy"}</span>
