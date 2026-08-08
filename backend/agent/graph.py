@@ -729,11 +729,14 @@ def planner_decision(state: AgentState) -> str:
 
 
 def should_retry(state: AgentState) -> str:
+    if state.get("intent") == "review_only":
+        return "end"  # nothing to regenerate from — draft_text is never re-fed to synthesize
     if state.get("draft") == "__FALLBACK__":
         return "end"
     if state.get("review_score", 0) >= 80 or state.get("retries", 0) >= MAX_RETRIES:
         return "end"
     return "synthesize"
+
 
 
 # ─── Routing: router → planner | extract | review ────────────
