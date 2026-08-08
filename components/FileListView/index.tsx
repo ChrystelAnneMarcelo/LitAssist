@@ -11,6 +11,7 @@ import AddPaperModal from "./AddPaperModal";
 import CompareModal from "./CompareModal";
 import PaperDetailModal from "./PaperDetailModal";
 import AnalyzeSummarizeView from "@/components/AnalyzeSummarizeView";
+import MyDraftView from "@/components/MyDraftView";
 import styles from "./styles.module.css";
 
 interface FileListViewProps {
@@ -254,13 +255,13 @@ export default function FileListView({
 
       {/* Tab bar */}
       <div className={styles.tabBar}>
-        {(["files", "analyze"] as CenterTab[]).map((tab) => (
+        {(["files", "analyze", "draft"] as CenterTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => onCenterTabChange(tab)}
             className={`${styles.centerTab} ${centerTab === tab ? styles.activeTab : ""}`}
           >
-            {tab === "files" ? "Files" : "Analyze & Summarize"}
+            {tab === "files" ? "Files" : tab === "analyze" ? "Analyze & Summarize" : "My Draft"}
           </button>
         ))}
 
@@ -431,8 +432,10 @@ export default function FileListView({
             </div>
           )}
         </div>
-      ) : (
+      ) : centerTab === "analyze" ? (
         <AnalyzeSummarizeView papers={project.papers} onAddPaper={onAddPaper} project={project} />
+      ) : (
+        <MyDraftView project={project} />
       )}
 
       {/* Modals */}

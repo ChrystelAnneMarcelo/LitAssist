@@ -66,18 +66,21 @@ async def chat(body: ChatInput):
     trace logs, token usage, review score, latency, and retry count.
     """
     try:
+        draft_input = body.draftText or body.draft_text
         result = await run_litassist_graph(
             question=body.question,
             papers=[p.model_dump() for p in body.papers],
             project_name=body.projectName,
             project_description=body.projectDescription,
             model_name=body.modelName,
+            draft_text=draft_input,
         )
 
         return AgentResponse(
             text=result["text"],
             trace=result["trace"],
             review_score=result["review_score"],
+            review_feedback=result.get("review_feedback"),
             tokens=TokenUsage(
                 prompt=result["tokens"]["prompt"],
                 completion=result["tokens"]["completion"],
@@ -211,6 +214,8 @@ async def parse_pdf(file: UploadFile = File(...)):
 class AnalyzeInput(BaseModel):
     title: str
     abstract: str
+    project_name: str = ""
+    project_description: str = ""
 
 
 @app.post("/analyze-abstract")
@@ -236,8 +241,18 @@ async def analyze_abstract(body: AnalyzeInput):
         for model_id in ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-flash-latest"]:
             try:
                 llm = get_llm(model_id)
+                scope_context = ""
+                if body.project_name or body.project_description:
+                    scope_context = (
+                        f"\nResearch Scope: {body.project_name}"
+                        + (f" — {body.project_description}" if body.project_description else "")
+                        + "\n"
+                    )
+
                 prompt = (
-                    "You are an academic paper analyzer. Analyze this paper title and abstract.\n"
+                    "You are an academic paper analyzer.\n"
+                    + (f"Score relevance against this specific research scope:{scope_context}" if scope_context else "")
+                    + "Analyze this paper title and abstract.\n"
                     "Return ONLY a valid JSON object matching this structure with no extra text or markdown:\n"
                     "{\n"
                     '  "clean_abstract": "Abstract text stripped of any leading Abstract header words",\n'
@@ -248,8 +263,12 @@ async def analyze_abstract(body: AnalyzeInput):
                     '    "Empirical finding 3"\n'
                     '  ],\n'
                     '  "research_gap": "Key limitations, unaddressed questions, or future directions mentioned (1-2 sentences)",\n'
-                    '  "relevance_score": 88\n'
-                    "}\n\n"
+                    + (
+                        '  "relevance_score": <0-100 integer: how directly this paper addresses the research scope above>\n'
+                        if scope_context else
+                        '  "relevance_score": <0-100 integer: overall paper quality and contribution>\n'
+                    )
+                    + "}\n\n"
                     f"Title: {body.title}\n"
                     f"Abstract: {clean_abstract}"
                 )

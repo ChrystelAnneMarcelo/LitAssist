@@ -33,6 +33,7 @@ export async function POST(req: Request) {
       tokens: data.tokens ?? { prompt: 0, completion: 0, total: 0 },
       latencyMs: data.latency_ms ?? 0,
       reviewScore: data.review_score ?? null,
+      reviewFeedback: data.review_feedback ?? null,
       retries: data.retries ?? 0,
       usedFallback: data.used_fallback ?? false,
       modelName: data.model_name ?? "gemini-2.5-flash",

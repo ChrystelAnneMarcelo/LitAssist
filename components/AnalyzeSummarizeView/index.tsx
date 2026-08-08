@@ -84,6 +84,8 @@ export default function AnalyzeSummarizeView({ papers, project }: Props) {
         body: JSON.stringify({
           title: selectedPaper.title,
           abstract: selectedPaper.abstract || "",
+          project_name: project?.name ?? "",
+          project_description: project?.description ?? "",
         }),
       });
 

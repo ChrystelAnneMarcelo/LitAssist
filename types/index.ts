@@ -44,6 +44,6 @@ export interface ChatSession {
   messages: ChatMessage[];
 }
 
-export type CenterTab = "files" | "analyze";
+export type CenterTab = "files" | "analyze" | "draft";
 export type SidebarTab = "files" | "chats";
 export type RightTab = "ask" | "notes";
