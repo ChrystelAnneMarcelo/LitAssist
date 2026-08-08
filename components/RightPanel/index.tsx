@@ -13,6 +13,8 @@ interface RightPanelProps {
   activeChatSession?: ChatSession | null;
   onUpdateChatMessages?: (chatId: string, messages: ChatMessage[], newTitle?: string) => void;
   onNewChat?: () => void;
+  selectedModel?: string;
+  onModelChange?: (model: string) => void;
 }
 
 export default function RightPanel({
@@ -21,6 +23,8 @@ export default function RightPanel({
   activeChatSession,
   onUpdateChatMessages,
   onNewChat,
+  selectedModel,
+  onModelChange,
 }: RightPanelProps) {
   return (
     <div className={styles.panel}>
@@ -45,6 +49,8 @@ export default function RightPanel({
         activeChatSession={activeChatSession}
         onUpdateChatMessages={onUpdateChatMessages}
         onNewChat={onNewChat}
+        selectedModel={selectedModel}
+        onModelChange={onModelChange}
       />
     </div>
   );

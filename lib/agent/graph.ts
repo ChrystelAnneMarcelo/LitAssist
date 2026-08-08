@@ -27,7 +27,7 @@ function getLLM() {
   const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || "";
   if (!apiKey) throw new Error("NO_API_KEY");
   return new ChatGoogleGenerativeAI({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.5-flash",
     apiKey,
     temperature: 0.4,
   });

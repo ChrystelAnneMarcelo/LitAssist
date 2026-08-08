@@ -22,11 +22,13 @@ class Paper(BaseModel):
 
 
 class ChatInput(BaseModel):
-    question: str = Field(..., min_length=1, description="Cannot be empty")
+    question: str = Field(default="Review my draft", description="User question or prompt")
     papers: list[Paper] = Field(default_factory=list)
     projectName: str = "Literature Review"
     projectDescription: str = ""
-    modelName: str = Field(default="gemini-1.5-flash", description="Gemini model ID for synthesis and review")
+    modelName: str = Field(default="gemini-2.5-flash", description="Gemini model ID for synthesis and review")
+    draftText: str = Field(default="", description="User RRL draft text for review_only intent")
+    draft_text: str = Field(default="", description="Snake_case alias for draftText")
 
 
 # ─── Node output models ─────────────────────────────────────────
@@ -48,8 +50,9 @@ class AgentResponse(BaseModel):
     text: Optional[str] = None
     trace: list[str] = Field(default_factory=list)
     review_score: Optional[int] = None
+    review_feedback: Optional[str] = None
     tokens: TokenUsage = Field(default_factory=TokenUsage)
     latency_ms: int = 0
     retries: int = 0
     used_fallback: bool = False
-    model_name: str = "gemini-1.5-flash"
+    model_name: str = "gemini-2.5-flash"

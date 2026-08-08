@@ -11,6 +11,7 @@ import AddPaperModal from "./AddPaperModal";
 import CompareModal from "./CompareModal";
 import PaperDetailModal from "./PaperDetailModal";
 import AnalyzeSummarizeView from "@/components/AnalyzeSummarizeView";
+import MyDraftView from "@/components/MyDraftView";
 import styles from "./styles.module.css";
 
 interface FileListViewProps {
@@ -25,6 +26,8 @@ interface FileListViewProps {
   onUpdateDescription?: (description: string) => void;
   theme?: "dark" | "light";
   onToggleTheme?: () => void;
+  selectedModel?: string;
+  onModelChange?: (model: string) => void;
 }
 
 export default function FileListView({
@@ -39,6 +42,8 @@ export default function FileListView({
   onUpdateDescription,
   theme = "dark",
   onToggleTheme,
+  selectedModel,
+  onModelChange,
 }: FileListViewProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
@@ -254,13 +259,13 @@ export default function FileListView({
 
       {/* Tab bar */}
       <div className={styles.tabBar}>
-        {(["files", "analyze"] as CenterTab[]).map((tab) => (
+        {(["files", "analyze", "draft"] as CenterTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => onCenterTabChange(tab)}
             className={`${styles.centerTab} ${centerTab === tab ? styles.activeTab : ""}`}
           >
-            {tab === "files" ? "Files" : "Analyze & Summarize"}
+            {tab === "files" ? "Files" : tab === "analyze" ? "Summarize & Score" : "My Draft"}
           </button>
         ))}
 
@@ -431,8 +436,10 @@ export default function FileListView({
             </div>
           )}
         </div>
-      ) : (
+      ) : centerTab === "analyze" ? (
         <AnalyzeSummarizeView papers={project.papers} onAddPaper={onAddPaper} project={project} />
+      ) : (
+        <MyDraftView project={project} selectedModel={selectedModel} onModelChange={onModelChange} />
       )}
 
       {/* Modals */}
