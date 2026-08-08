@@ -55,19 +55,18 @@ MAX_RETRIES = 3
 
 
 VALID_MODELS = {
-    "gemini-1.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-pro",
+    "gemini-2.5-flash",
+    "gemini-3.5-flash",
     "gemini-flash-latest",
 }
 
 
 # ─── Helper: get LLM ──────────────────────────────────────────
-def get_llm(model_name: str = "gemini-1.5-flash") -> ChatGoogleGenerativeAI:
+def get_llm(model_name: str = "gemini-2.5-flash") -> ChatGoogleGenerativeAI:
     api_key = os.getenv("API_KEY") or os.getenv("GEMINI_API_KEY", "")
     if not api_key:
         raise ValueError("NO_API_KEY")
-    target_model = model_name if model_name in VALID_MODELS else "gemini-1.5-flash"
+    target_model = model_name if model_name in VALID_MODELS else "gemini-2.5-flash"
     return ChatGoogleGenerativeAI(
         model=target_model,
         google_api_key=api_key,
@@ -585,7 +584,7 @@ async def synthesize_node(state: AgentState) -> dict:
     prompt_tokens = 0
     completion_tokens = 0
 
-    model = state.get("model_name", "gemini-1.5-flash")
+    model = state.get("model_name", "gemini-2.5-flash")
     try:
         llm = get_llm(model)
         result = llm.invoke(prompt)
@@ -781,7 +780,7 @@ async def run_litassist_graph(
     papers: list[dict],
     project_name: str = "Literature Review",
     project_description: str = "",
-    model_name: str = "gemini-1.5-flash",
+    model_name: str = "gemini-2.5-flash",
 ) -> dict:
     """Entry point called by the FastAPI route with multi-model failover."""
     start_time = time.time()
@@ -815,9 +814,8 @@ async def run_litassist_graph(
     latency_ms = int((time.time() - start_time) * 1000)
 
     model_labels = {
-        "gemini-1.5-flash": "Gemini 1.5 Flash",
-        "gemini-2.0-flash": "Gemini 2.0 Flash",
-        "gemini-1.5-pro": "Gemini 1.5 Pro",
+        "gemini-2.5-flash": "Gemini 2.5 Flash",
+        "gemini-3.5-flash": "Gemini 3.5 Flash",
         "gemini-flash-latest": "Gemini Flash Auto",
     }
     label = model_labels.get(model_name, model_name)

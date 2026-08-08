@@ -86,7 +86,7 @@ async def chat(body: ChatInput):
             latency_ms=result["latency_ms"],
             retries=result["retries"],
             used_fallback=result["used_fallback"],
-            model_name=result.get("model_name", "gemini-1.5-flash"),
+            model_name=result.get("model_name", "gemini-2.5-flash"),
         )
     except Exception as e:
         print(f"[ERROR] LangGraph agent failed: {e}")

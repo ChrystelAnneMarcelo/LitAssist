@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       reviewScore: data.review_score ?? null,
       retries: data.retries ?? 0,
       usedFallback: data.used_fallback ?? false,
-      modelName: data.model_name ?? "gemini-1.5-flash",
+      modelName: data.model_name ?? "gemini-2.5-flash",
     });
 
   } catch (err: any) {

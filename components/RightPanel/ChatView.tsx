@@ -23,9 +23,8 @@ const SUGGESTIONS = [
 ];
 
 const MODELS = [
-  { id: "gemini-1.5-flash",    label: "Gemini 1.5 Flash",  note: "Recommended - Fast" },
-  { id: "gemini-2.0-flash",    label: "Gemini 2.0 Flash",  note: "Next-Gen Fast" },
-  { id: "gemini-1.5-pro",      label: "Gemini 1.5 Pro",    note: "Deep Analysis" },
+  { id: "gemini-2.5-flash",    label: "Gemini 2.5 Flash",  note: "Recommended - Fast" },
+  { id: "gemini-3.5-flash",    label: "Gemini 3.5 Flash",  note: "Next-Gen Fast" },
   { id: "gemini-flash-latest", label: "Gemini Flash Auto", note: "Latest Build" },
 ] as const;
 
@@ -260,7 +259,7 @@ export default function ChatView({
   const [thinkingSeconds, setThinkingSeconds] = useState<number>(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [openTraces, setOpenTraces] = useState<Set<string>>(new Set());
-  const [selectedModel, setSelectedModel] = useState<ModelId>("gemini-1.5-flash");
+  const [selectedModel, setSelectedModel] = useState<ModelId>("gemini-2.5-flash");
   const [showRubricModal, setShowRubricModal] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
