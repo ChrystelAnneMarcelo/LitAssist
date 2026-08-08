@@ -19,6 +19,12 @@ interface Props {
 interface ReviewResult {
   score: number;
   feedback: string;
+  criteriaScores?: {
+    depth: number;
+    structure: number;
+    citations: number;
+    scope: number;
+  };
   trace: string[];
   latencyMs: number;
   modelName: string;
@@ -105,6 +111,12 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
         setReviewResult({
           score: data.reviewScore ?? 88,
           feedback: data.reviewFeedback || data.text || "Draft evaluated by peer reviewer.",
+          criteriaScores: data.criteriaScores || {
+            depth: words >= 120 ? 90 : 65,
+            structure: hasHeaders ? 88 : 60,
+            citations: hasCitations ? 90 : 55,
+            scope: data.reviewScore ?? 85,
+          },
           trace: data.trace || [],
           latencyMs: data.latencyMs || 0,
           modelName: data.modelName || "gemini-2.5-flash",
@@ -269,40 +281,116 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
               </div>
             </div>
 
-            {/* Academic Rubric Checklist */}
-            <div className={styles.checklistCard}>
-              <div className={styles.cardLabel}>ACADEMIC RUBRIC CHECKLIST</div>
-              <div className={styles.checkGrid}>
-                <div className={styles.checkItem}>
-                  {hasMinLength ? (
-                    <CheckCircle2 size={13} className={styles.checkBadgePass} />
-                  ) : (
-                    <AlertTriangle size={13} className={styles.checkBadgeWarn} />
-                  )}
-                  <span>Word Count ({words}/120)</span>
+            {/* Criteria Breakdown Card */}
+            {(() => {
+              const cScores = reviewResult.criteriaScores || {
+                depth: words >= 120 ? 90 : 65,
+                structure: hasHeaders ? 88 : 60,
+                citations: hasCitations ? 90 : 55,
+                scope: score,
+              };
+              return (
+                <div className={styles.checklistCard}>
+                  <div className={styles.cardLabel} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>CRITERIA SCORE BREAKDOWN</span>
+                    <span style={{ fontSize: 9, color: "var(--muted-foreground)" }}>SCORED BY {reviewResult.modelName}</span>
+                  </div>
+                  <div className={styles.criteriaList}>
+                    {/* 1. Word Count & Depth */}
+                    <div className={styles.criteriaRow}>
+                      <div className={styles.criteriaHeader}>
+                        <span className={styles.criteriaTitle}>
+                          {cScores.depth >= 80 ? (
+                            <CheckCircle2 size={12} style={{ color: "#7ab8a4" }} />
+                          ) : (
+                            <AlertTriangle size={12} style={{ color: "#c9a96e" }} />
+                          )}
+                          1. Word Count &amp; Depth ({words}/120 words)
+                        </span>
+                        <span className={styles.criteriaScore} style={{ color: "#7ab8a4" }}>
+                          {cScores.depth}%
+                        </span>
+                      </div>
+                      <div className={styles.criteriaBar}>
+                        <div
+                          className={styles.criteriaFill}
+                          style={{ width: `${cScores.depth}%`, background: "#7ab8a4" }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* 2. Structural Organization */}
+                    <div className={styles.criteriaRow}>
+                      <div className={styles.criteriaHeader}>
+                        <span className={styles.criteriaTitle}>
+                          {cScores.structure >= 80 ? (
+                            <CheckCircle2 size={12} style={{ color: "#c9a96e" }} />
+                          ) : (
+                            <AlertTriangle size={12} style={{ color: "#c9a96e" }} />
+                          )}
+                          2. Structural Organization &amp; Headers
+                        </span>
+                        <span className={styles.criteriaScore} style={{ color: "#c9a96e" }}>
+                          {cScores.structure}%
+                        </span>
+                      </div>
+                      <div className={styles.criteriaBar}>
+                        <div
+                          className={styles.criteriaFill}
+                          style={{ width: `${cScores.structure}%`, background: "#c9a96e" }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* 3. In-Text Citation Density */}
+                    <div className={styles.criteriaRow}>
+                      <div className={styles.criteriaHeader}>
+                        <span className={styles.criteriaTitle}>
+                          {cScores.citations >= 80 ? (
+                            <CheckCircle2 size={12} style={{ color: "#7e8fc7" }} />
+                          ) : (
+                            <AlertTriangle size={12} style={{ color: "#c9a96e" }} />
+                          )}
+                          3. In-Text Citation Density
+                        </span>
+                        <span className={styles.criteriaScore} style={{ color: "#7e8fc7" }}>
+                          {cScores.citations}%
+                        </span>
+                      </div>
+                      <div className={styles.criteriaBar}>
+                        <div
+                          className={styles.criteriaFill}
+                          style={{ width: `${cScores.citations}%`, background: "#7e8fc7" }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* 4. Research Scope Alignment */}
+                    <div className={styles.criteriaRow}>
+                      <div className={styles.criteriaHeader}>
+                        <span className={styles.criteriaTitle}>
+                          {cScores.scope >= 80 ? (
+                            <CheckCircle2 size={12} style={{ color: "#b07ab8" }} />
+                          ) : (
+                            <AlertTriangle size={12} style={{ color: "#c9a96e" }} />
+                          )}
+                          4. Research Scope Alignment
+                        </span>
+                        <span className={styles.criteriaScore} style={{ color: "#b07ab8" }}>
+                          {cScores.scope}%
+                        </span>
+                      </div>
+                      <div className={styles.criteriaBar}>
+                        <div
+                          className={styles.criteriaFill}
+                          style={{ width: `${cScores.scope}%`, background: "#b07ab8" }}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className={styles.checkItem}>
-                  {hasHeaders ? (
-                    <CheckCircle2 size={13} className={styles.checkBadgePass} />
-                  ) : (
-                    <AlertTriangle size={13} className={styles.checkBadgeWarn} />
-                  )}
-                  <span>Markdown Headers</span>
-                </div>
-                <div className={styles.checkItem}>
-                  {hasCitations ? (
-                    <CheckCircle2 size={13} className={styles.checkBadgePass} />
-                  ) : (
-                    <AlertTriangle size={13} className={styles.checkBadgeWarn} />
-                  )}
-                  <span>In-Text Citations</span>
-                </div>
-                <div className={styles.checkItem}>
-                  <CheckCircle2 size={13} className={styles.checkBadgePass} />
-                  <span>Scope Alignment</span>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Critique Feedback */}
             <div className={styles.feedbackCard}>
@@ -356,7 +444,7 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
       </div>
 
       {showRubricModal && (
-        <ScoringRubricModal project={project} onClose={() => setShowRubricModal(false)} />
+        <ScoringRubricModal project={project} type="draft" onClose={() => setShowRubricModal(false)} />
       )}
     </div>
   );

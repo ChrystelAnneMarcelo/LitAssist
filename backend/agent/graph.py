@@ -684,11 +684,19 @@ async def review_node(state: AgentState) -> dict:
         f"- Markdown Headers: {'Present' if has_headers else 'Missing'}\n"
         f"- In-Text Citations: {'Present' if has_citations else 'Missing'}\n\n"
         "Instructions:\n"
-        "1. Evaluate academic writing quality, citation density, structural organization, and scope alignment.\n"
-        "2. Assign an overall Academic Rigor Score between 0 and 100 based on true academic rigor.\n"
-        "3. Provide 2-3 sentences of constructive, specific reviewer critique highlighting strengths and necessary revisions.\n\n"
+        "1. Evaluate writing depth, structural headers, citation density, and scope alignment.\n"
+        "2. Score each of the 4 criteria (0-100):\n"
+        "   - depth_score: length & narrative depth\n"
+        "   - structure_score: section headers & organization\n"
+        "   - citation_score: author/year in-text citation integrity\n"
+        "   - scope_score: research scope alignment\n"
+        "3. Assign an overall score (0-100) and 2-3 sentences of reviewer critique.\n\n"
         "Return ONLY a valid JSON object with format:\n"
         "{\n"
+        '  "depth_score": <0-100 integer>,\n'
+        '  "structure_score": <0-100 integer>,\n'
+        '  "citation_score": <0-100 integer>,\n'
+        '  "scope_score": <0-100 integer>,\n'
         '  "score": <0-100 integer>,\n'
         '  "feedback": "<Specific reviewer feedback text>"\n'
         "}"
@@ -697,6 +705,12 @@ async def review_node(state: AgentState) -> dict:
     model = state.get("model_name", "gemini-2.5-flash")
     score = 82
     feedback = "Draft evaluated by peer reviewer."
+    c_scores = {
+        "depth": 90 if word_count >= 120 else 65,
+        "structure": 88 if has_headers else 60,
+        "citations": 90 if has_citations else 55,
+        "scope": 85,
+    }
 
     try:
         llm = get_llm(model)
@@ -707,6 +721,12 @@ async def review_node(state: AgentState) -> dict:
             parsed = json.loads(match.group(0))
             score = int(parsed.get("score") or score)
             feedback = str(parsed.get("feedback") or feedback).strip()
+            c_scores = {
+                "depth": int(parsed.get("depth_score") or c_scores["depth"]),
+                "structure": int(parsed.get("structure_score") or c_scores["structure"]),
+                "citations": int(parsed.get("citation_score") or c_scores["citations"]),
+                "scope": int(parsed.get("scope_score") or c_scores["scope"]),
+            }
     except Exception as err:
         print(f"[WARN] Reviewer node fallback: {err}")
         score = min(92, max(60, 70 + (10 if has_headers else 0) + (10 if has_citations else 0) + min(12, word_count // 30)))
@@ -718,8 +738,9 @@ async def review_node(state: AgentState) -> dict:
     return {
         "review_score": score,
         "review_feedback": feedback,
+        "criteria_scores": c_scores,
         "retries": retries,
-        "trace": [f"[ReviewerNode +{elapsed}ms] Peer review evaluation complete via {model} (Score: {score}/100 — {feedback[:60]}...)."],
+        "trace": [f"[ReviewerNode +{elapsed}ms] Peer review complete via {model} (Score: {score}/100 — Depth: {c_scores['depth']}%, Structure: {c_scores['structure']}%, Citations: {c_scores['citations']}%, Scope: {c_scores['scope']}%)."],
     }
 
 
@@ -729,6 +750,8 @@ def planner_decision(state: AgentState) -> str:
 
 
 def should_retry(state: AgentState) -> str:
+    if state.get("intent") == "review_only":
+        return "end"  # nothing to regenerate from — draft_text is never re-fed to synthesize
     if state.get("draft") == "__FALLBACK__":
         return "end"
     if state.get("review_score", 0) >= 80 or state.get("retries", 0) >= MAX_RETRIES:
@@ -736,18 +759,16 @@ def should_retry(state: AgentState) -> str:
     return "synthesize"
 
 
+
 # ─── Routing: router → planner | extract | review ────────────
 def router_decision(state: AgentState) -> str:
     intent = state.get("intent", "general")
-    q = state.get("question", "").lower()
-    # review_only: user pasted a draft — skip straight to ReviewerNode
     if intent == "review_only":
         return "review"
-    # If user explicitly asked for web search or looking up new papers
-    if any(kw in q for kw in ["search", "find", "latest", "recent", "look up", "additional", "more paper"]):
-        return "planner"
-    # Standard paper chat, scoring, or synthesis: go straight to Extract -> Synthesize
-    return "extract"
+    if intent == "summarize":
+        return "extract"
+    return "planner"
+
 
 
 # ─── Build and compile graph ───────────────────────────────────
@@ -865,6 +886,7 @@ async def run_litassist_graph(
         "trace": result.get("trace", []),
         "review_score": result.get("review_score", 0),
         "review_feedback": result.get("review_feedback", ""),
+        "criteria_scores": result.get("criteria_scores"),
         "tokens": {
             "prompt": prompt_tokens,
             "completion": completion_tokens,

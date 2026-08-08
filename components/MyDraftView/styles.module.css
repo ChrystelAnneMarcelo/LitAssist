@@ -336,6 +336,57 @@
   color: #c9a96e;
 }
 
+.criteriaList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.criteriaRow {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.criteriaHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.criteriaTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--foreground);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.criteriaScore {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.criteriaBar {
+  height: 4px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.criteriaFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
 /* Feedback Section */
 .feedbackCard {
   padding: 16px;

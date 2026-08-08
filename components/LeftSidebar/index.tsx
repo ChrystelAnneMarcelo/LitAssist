@@ -175,7 +175,7 @@ export default function LeftSidebar({
                         <button
                           className={`${styles.projectItem} ${isActive ? styles.active : ""}`}
                           onClick={() => onSelectProject(project.id)}
-                          style={{ paddingRight: onDeleteProject && isHovered && projects.length > 1 ? 30 : 16 }}
+                          style={{ paddingRight: onDeleteProject ? 36 : 16 }}
                         >
                           <BookMarked
                             size={12}
@@ -189,23 +189,36 @@ export default function LeftSidebar({
                             </div>
                           </div>
                         </button>
-                        {onDeleteProject && isHovered && projects.length > 1 && (
+                        {onDeleteProject && isHovered && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onDeleteProject(project.id);
+                              if (projects.length <= 1) {
+                                alert("Cannot delete the last remaining project. Create another project first.");
+                                return;
+                              }
+                              if (window.confirm(`Are you sure you want to delete "${project.name}" and all papers inside it?`)) {
+                                onDeleteProject(project.id);
+                              }
                             }}
                             style={{
                               position: "absolute",
-                              right: 8,
+                              right: 6,
+                              width: 24,
+                              height: 24,
+                              borderRadius: 6,
+                              background: "rgba(192, 57, 43, 0.12)",
+                              border: "1px solid rgba(192, 57, 43, 0.25)",
                               color: "var(--destructive)",
-                              padding: 4,
-                              borderRadius: 4,
-                              background: "rgba(0,0,0,0.2)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
                             }}
                             title="Delete project"
                           >
-                            <Trash2 size={11} />
+                            <Trash2 size={13} />
                           </button>
                         )}
                       </div>
