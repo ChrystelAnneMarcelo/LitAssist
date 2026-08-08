@@ -268,6 +268,8 @@ export default function AppShell() {
         onClearSelection={() => setSelectedPaperIds(new Set())}
         onAddPaper={handleAddPaper}
         onDeletePaper={handleDeletePaper}
+        onDeleteProject={handleDeleteProject}
+        canDeleteProject={projects.length > 1}
         onUpdateDescription={handleUpdateProjectDescription}
         theme={theme}
         onToggleTheme={toggleTheme}

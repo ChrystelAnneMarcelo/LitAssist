@@ -51,6 +51,7 @@ class AgentResponse(BaseModel):
     trace: list[str] = Field(default_factory=list)
     review_score: Optional[int] = None
     review_feedback: Optional[str] = None
+    criteria_scores: Optional[dict[str, int]] = None
     tokens: TokenUsage = Field(default_factory=TokenUsage)
     latency_ms: int = 0
     retries: int = 0

@@ -81,6 +81,7 @@ async def chat(body: ChatInput):
             trace=result["trace"],
             review_score=result["review_score"],
             review_feedback=result.get("review_feedback"),
+            criteria_scores=result.get("criteria_scores"),
             tokens=TokenUsage(
                 prompt=result["tokens"]["prompt"],
                 completion=result["tokens"]["completion"],

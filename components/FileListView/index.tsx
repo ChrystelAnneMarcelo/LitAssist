@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   LayoutList, LayoutGrid, ArrowUpDown, Filter, Plus, FileText,
-  GitCompare, X, Sun, Moon, Search, Calendar, User, Tag, Square
+  GitCompare, X, Sun, Moon, Search, Calendar, User, Tag, Square, Trash2, AlertTriangle
 } from "lucide-react";
 import type { Project, Paper, CenterTab } from "@/types";
 import PaperRow from "./PaperRow";
@@ -28,6 +28,8 @@ interface FileListViewProps {
   onToggleTheme?: () => void;
   selectedModel?: string;
   onModelChange?: (model: string) => void;
+  onDeleteProject?: (id: string) => void;
+  canDeleteProject?: boolean;
 }
 
 export default function FileListView({
@@ -44,9 +46,12 @@ export default function FileListView({
   onToggleTheme,
   selectedModel,
   onModelChange,
+  onDeleteProject,
+  canDeleteProject = true,
 }: FileListViewProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [activeDetailPaper, setActiveDetailPaper] = useState<Paper | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [showFilterBar, setShowFilterBar] = useState(false);
@@ -85,8 +90,31 @@ export default function FileListView({
     <div className={styles.panel}>
       {/* Top bar */}
       <div className={styles.topBar}>
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
           <span className={styles.projectTitle}>{project.name}</span>
+          {onDeleteProject && canDeleteProject && (
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              title={`Delete project "${project.name}"`}
+              style={{
+                background: "rgba(192, 57, 43, 0.1)",
+                border: "1px solid rgba(192, 57, 43, 0.25)",
+                color: "var(--destructive)",
+                borderRadius: "var(--radius-sm)",
+                padding: "3px 8px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 11,
+                fontWeight: 500,
+                flexShrink: 0,
+              }}
+            >
+              <Trash2 size={11} />
+              <span>Delete</span>
+            </button>
+          )}
         </div>
         <div className={styles.topBarRight}>
           <span className={styles.fileCount}>{project.papers.length} files in folder</span>
@@ -451,6 +479,98 @@ export default function FileListView({
       )}
       {activeDetailPaper && (
         <PaperDetailModal paper={activeDetailPaper} onClose={() => setActiveDetailPaper(null)} project={project} />
+      )}
+      {showDeleteModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.65)",
+            backdropFilter: "blur(4px)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-lg)",
+              width: "100%",
+              maxWidth: 420,
+              padding: 24,
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+              boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: "rgba(192, 57, 43, 0.15)",
+                  border: "1px solid rgba(192, 57, 43, 0.3)",
+                  color: "var(--destructive)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <Trash2 size={18} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: 15, fontWeight: 600, color: "var(--foreground)" }}>Delete Project</h3>
+                <p style={{ fontSize: 12, color: "var(--muted-foreground)" }}>This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: 13, color: "var(--foreground)", lineHeight: 1.5 }}>
+              Are you sure you want to delete <strong>"{project.name}"</strong> and all <strong>{project.papers.length} paper(s)</strong> in this folder?
+            </p>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: 12,
+                  borderRadius: "var(--radius-sm)",
+                  background: "var(--muted)",
+                  border: "1px solid var(--border)",
+                  color: "var(--foreground)",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (onDeleteProject) onDeleteProject(project.id);
+                  setShowDeleteModal(false);
+                }}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: 12,
+                  borderRadius: "var(--radius-sm)",
+                  background: "var(--destructive)",
+                  border: "none",
+                  color: "var(--destructive-foreground)",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Delete Project
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
