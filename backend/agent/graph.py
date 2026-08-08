@@ -739,15 +739,12 @@ def should_retry(state: AgentState) -> str:
 # ─── Routing: router → planner | extract | review ────────────
 def router_decision(state: AgentState) -> str:
     intent = state.get("intent", "general")
-    q = state.get("question", "").lower()
-    # review_only: user pasted a draft — skip straight to ReviewerNode
     if intent == "review_only":
         return "review"
-    # If user explicitly asked for web search or looking up new papers
-    if any(kw in q for kw in ["search", "find", "latest", "recent", "look up", "additional", "more paper"]):
-        return "planner"
-    # Standard paper chat, scoring, or synthesis: go straight to Extract -> Synthesize
-    return "extract"
+    if intent == "summarize":
+        return "extract"
+    return "planner"
+
 
 
 # ─── Build and compile graph ───────────────────────────────────
