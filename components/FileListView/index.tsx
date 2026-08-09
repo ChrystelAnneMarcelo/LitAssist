@@ -23,7 +23,9 @@ interface FileListViewProps {
   onClearSelection: () => void;
   onAddPaper: (paper: Paper) => void;
   onDeletePaper?: (paperId: string) => void;
+  onUpdatePaper?: (paper: Paper) => void;
   onUpdateDescription?: (description: string) => void;
+  onUpdateProject?: (projectId: string, updates: Partial<Project>) => void;
   theme?: "dark" | "light";
   onToggleTheme?: () => void;
   selectedModel?: string;
@@ -41,7 +43,9 @@ export default function FileListView({
   onClearSelection,
   onAddPaper,
   onDeletePaper,
+  onUpdatePaper,
   onUpdateDescription,
+  onUpdateProject,
   theme = "dark",
   onToggleTheme,
   selectedModel,
@@ -471,9 +475,9 @@ export default function FileListView({
           )}
         </div>
       ) : centerTab === "analyze" ? (
-        <AnalyzeSummarizeView papers={project.papers} onAddPaper={onAddPaper} project={project} />
+        <AnalyzeSummarizeView papers={project.papers} onAddPaper={onAddPaper} onUpdatePaper={onUpdatePaper} project={project} />
       ) : (
-        <MyDraftView project={project} selectedModel={selectedModel} onModelChange={onModelChange} />
+        <MyDraftView project={project} selectedModel={selectedModel} onModelChange={onModelChange} onUpdateProject={onUpdateProject} />
       )}
 
       {/* Modals */}

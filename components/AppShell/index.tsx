@@ -204,6 +204,14 @@ export default function AppShell() {
     }
   };
 
+  // Notes/Draft views persist to the backend themselves (they need their own
+  // save-status UI and debouncing); this just keeps AppShell's copy of
+  // `projects` in sync afterwards so switching tabs/projects doesn't lose
+  // what was just saved.
+  const handleUpdateProject = (projectId: string, updates: Partial<Project>) => {
+    setProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, ...updates } : p)));
+  };
+
   const handleDeleteProject = async (id: string) => {
     if (projects.length <= 1) return;
     const prevProjects = projects;
@@ -236,6 +244,19 @@ export default function AppShell() {
     } catch (err) {
       console.error("Failed to save paper:", err);
     }
+  };
+
+  // AnalyzeSummarizeView already persisted the paper (e.g. its `analysis`
+  // field) via savePaperAnalysisApi — this just merges the server's
+  // response into local state so every view stays in sync.
+  const handleUpdatePaper = (updatedPaper: Paper) => {
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === activeProjectId
+          ? { ...p, papers: p.papers.map((item) => (item.id === updatedPaper.id ? updatedPaper : item)) }
+          : p
+      )
+    );
   };
 
   const handleDeletePaper = async (paperId: string) => {
@@ -308,10 +329,12 @@ export default function AppShell() {
             onToggleSelect={togglePaperSelect}
             onClearSelection={() => setSelectedPaperIds(new Set())}
             onAddPaper={handleAddPaper}
+            onUpdatePaper={handleUpdatePaper}
             onDeletePaper={handleDeletePaper}
             onDeleteProject={handleDeleteProject}
             canDeleteProject={projects.length > 1}
             onUpdateDescription={handleUpdateProjectDescription}
+            onUpdateProject={handleUpdateProject}
             theme={theme}
             onToggleTheme={toggleTheme}
             selectedModel={selectedModel}
@@ -322,6 +345,7 @@ export default function AppShell() {
             project={activeProject}
             tab={rightTab}
             onTabChange={setRightTab}
+            onUpdateProject={handleUpdateProject}
             selectedPapers={activeProject.papers.filter((p) => selectedPaperIds.has(p.id))}
             activeChatSession={activeChatSession}
             onUpdateChatMessages={handleUpdateChatMessages}

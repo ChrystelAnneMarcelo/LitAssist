@@ -9,7 +9,7 @@
  * Every function throws on a non-2xx response so callers can catch and
  * show an error state rather than silently getting `undefined`.
  */
-import type { Project, Paper, ChatSession, ChatMessage } from "@/types";
+import type { Project, Paper, PaperAnalysis, Draft, ChatSession, ChatMessage } from "@/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
@@ -56,10 +56,7 @@ export function saveNotesApi(projectId: string, notes: string): Promise<{ notes:
   });
 }
 
-export function saveDraftApi(
-  projectId: string,
-  draft: { text: string; reviewResult: any | null }
-): Promise<{ text: string; reviewResult: any | null }> {
+export function saveDraftApi(projectId: string, draft: Draft): Promise<Draft> {
   return request(`/projects/${projectId}/draft`, {
     method: "PUT",
     body: JSON.stringify(draft),
@@ -83,6 +80,17 @@ export function updatePaperApi(projectId: string, paperId: string, paper: Omit<P
 
 export function deletePaperApi(projectId: string, paperId: string): Promise<void> {
   return request<void>(`/projects/${projectId}/papers/${paperId}`, { method: "DELETE" });
+}
+
+export function savePaperAnalysisApi(
+  projectId: string,
+  paperId: string,
+  analysis: PaperAnalysis
+): Promise<Paper> {
+  return request<Paper>(`/projects/${projectId}/papers/${paperId}/analysis`, {
+    method: "PATCH",
+    body: JSON.stringify(analysis),
+  });
 }
 
 // ─── Chats ───────────────────────────────────────────────────

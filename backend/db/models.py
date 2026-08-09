@@ -39,6 +39,22 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# ─── Paper analysis (Summarize & Score result, one per paper) ──
+class PaperAnalysis(BaseModel):
+    summary: str = ""
+    keyFindings: list[str] = Field(default_factory=list)
+    methodology: str = ""
+    researchGap: str = ""
+    relevanceScore: int = 0
+    topicRelevanceScore: Optional[int] = None
+    topicRelevanceRationale: Optional[str] = None
+    methodologicalRigorScore: Optional[int] = None
+    methodologicalRigorRationale: Optional[str] = None
+    overallRrlRationale: Optional[str] = None
+    themes: list[str] = Field(default_factory=list)
+    analyzedAt: str = Field(default_factory=_now_iso)
+
+
 # ─── Paper (own collection now; projectId is the foreign key) ──
 class Paper(BaseModel):
     id: str
@@ -55,6 +71,7 @@ class Paper(BaseModel):
     doi: Optional[str] = None
     url: Optional[str] = None
     pdfUrl: Optional[str] = None
+    analysis: Optional[PaperAnalysis] = None
 
 
 class PaperCreate(BaseModel):

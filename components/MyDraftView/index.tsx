@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   FileText, Sparkles, Copy, Check, RotateCcw, Award,
   CheckCircle2, AlertTriangle, Clock, Hash, HelpCircle,
-  ChevronDown, ChevronRight, Activity, Terminal
+  ChevronDown, ChevronRight, Activity, Terminal, Loader2, Save, AlertCircle,
 } from "lucide-react";
-import type { Project } from "@/types";
+import type { Project, ReviewResult } from "@/types";
+import { saveDraftApi } from "@/lib/api";
 import ScoringRubricModal from "@/components/ScoringRubricModal";
 import styles from "./styles.module.css";
 
@@ -14,53 +15,59 @@ interface Props {
   project: Project;
   selectedModel?: string;
   onModelChange?: (model: string) => void;
+  onUpdateProject?: (projectId: string, updates: Partial<Project>) => void;
 }
 
-interface ReviewResult {
-  score: number;
-  feedback: string;
-  criteriaScores?: {
-    depth: number;
-    structure: number;
-    citations: number;
-    scope: number;
-  };
-  trace: string[];
-  latencyMs: number;
-  modelName: string;
-  tokens: { prompt: number; completion: number; total: number };
-  retries: number;
-}
+const SAVE_DEBOUNCE_MS = 800;
 
-export default function MyDraftView({ project, selectedModel: propModel, onModelChange }: Props) {
-  const localStorageKey = `litassist_draft_${project.id}`;
-
-  const [draftText, setDraftText] = useState<string>("");
+export default function MyDraftView({ project, selectedModel: propModel, onModelChange, onUpdateProject }: Props) {
+  const [draftText, setDraftText] = useState<string>(project.draft?.text ?? "");
   const [localModel, setLocalModel] = useState<string>("gemini-2.5-flash");
 
   const currentModel = propModel ?? localModel;
   const setModel = onModelChange ?? setLocalModel;
   const [isReviewing, setIsReviewing] = useState(false);
-  const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
+  const [reviewResult, setReviewResult] = useState<ReviewResult | null>(project.draft?.reviewResult ?? null);
   const [copied, setCopied] = useState(false);
   const [showRubricModal, setShowRubricModal] = useState(false);
   const [showTrace, setShowTrace] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
-  // Load draft from localStorage on mount / project change
+  const reviewResultRef = useRef<ReviewResult | null>(reviewResult);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load draft from the backend-persisted project record on mount / project change.
   useEffect(() => {
-    const saved = localStorage.getItem(localStorageKey);
-    if (saved !== null) {
-      setDraftText(saved);
-    } else {
-      setDraftText("");
-    }
-    setReviewResult(null);
-  }, [project.id, localStorageKey]);
+    setDraftText(project.draft?.text ?? "");
+    setReviewResult(project.draft?.reviewResult ?? null);
+    reviewResultRef.current = project.draft?.reviewResult ?? null;
+    setSaveStatus("idle");
+  }, [project.id]);
 
-  // Auto-save draft changes to localStorage
+  const persistDraft = (text: string, result: ReviewResult | null, immediate = false) => {
+    const run = async () => {
+      setSaveStatus("saving");
+      try {
+        const saved = await saveDraftApi(project.id, { text, reviewResult: result });
+        onUpdateProject?.(project.id, { draft: saved });
+        setSaveStatus("saved");
+      } catch (err) {
+        console.warn("Failed to save draft:", err);
+        setSaveStatus("error");
+      }
+    };
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    if (immediate) {
+      run();
+    } else {
+      saveTimer.current = setTimeout(run, SAVE_DEBOUNCE_MS);
+    }
+  };
+
+  // Auto-save draft text changes (debounced) — keeps whatever review result is current.
   const handleDraftChange = (text: string) => {
     setDraftText(text);
-    localStorage.setItem(localStorageKey, text);
+    persistDraft(text, reviewResultRef.current);
   };
 
   const handleCopy = () => {
@@ -72,8 +79,10 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
 
   const handleClear = () => {
     if (window.confirm("Are you sure you want to clear your current draft?")) {
-      handleDraftChange("");
+      setDraftText("");
       setReviewResult(null);
+      reviewResultRef.current = null;
+      persistDraft("", null, true);
     }
   };
 
@@ -108,7 +117,7 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
 
       if (res.ok) {
         const data = await res.json();
-        setReviewResult({
+        const nextResult: ReviewResult = {
           score: data.reviewScore ?? 88,
           feedback: data.reviewFeedback || data.text || "Draft evaluated by peer reviewer.",
           criteriaScores: data.criteriaScores || {
@@ -122,7 +131,12 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
           modelName: data.modelName || "gemini-2.5-flash",
           tokens: data.tokens || { prompt: 0, completion: 0, total: 0 },
           retries: data.retries || 0,
-        });
+        };
+        setReviewResult(nextResult);
+        reviewResultRef.current = nextResult;
+        // Save immediately (not debounced) — a fresh review result shouldn't
+        // sit unsaved behind the text-change debounce window.
+        persistDraft(draftText, nextResult, true);
       } else {
         alert("Failed to evaluate draft. Please check your backend connection.");
       }
@@ -188,6 +202,35 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
             <Sparkles size={14} className={isReviewing ? "animate-spin" : ""} />
             <span>{isReviewing ? "Evaluating Rigor…" : "Review This Draft"}</span>
           </button>
+
+          {saveStatus !== "idle" && (
+            <span
+              style={{
+                display: "flex", alignItems: "center", gap: 4,
+                fontSize: 10, fontFamily: "var(--font-mono)", marginLeft: 8,
+                color: saveStatus === "error" ? "#c77" : "var(--muted-foreground)",
+              }}
+            >
+              {saveStatus === "saving" && (
+                <>
+                  <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} />
+                  Saving…
+                </>
+              )}
+              {saveStatus === "saved" && (
+                <>
+                  <Save size={10} style={{ color: "var(--primary)" }} />
+                  Saved
+                </>
+              )}
+              {saveStatus === "error" && (
+                <>
+                  <AlertCircle size={10} />
+                  Save failed
+                </>
+              )}
+            </span>
+          )}
         </div>
 
         {/* Textarea Container */}

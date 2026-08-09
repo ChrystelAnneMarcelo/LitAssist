@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from db.mongo import get_db
-from db.models import Paper, PaperCreate
+from db.models import Paper, PaperCreate, PaperAnalysis
 
 router = APIRouter(prefix="/projects/{project_id}/papers", tags=["papers"])
 
@@ -51,6 +51,26 @@ async def update_paper(project_id: str, paper_id: str, body: PaperCreate, db: As
     result = await db.papers.find_one_and_update(
         {"id": paper_id, "projectId": project_id},
         {"$set": update},
+        projection={"_id": 0},
+        return_document=True,
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="Paper not found in this project")
+    return result
+
+
+@router.patch("/{paper_id}/analysis", response_model=Paper)
+async def save_paper_analysis(
+    project_id: str, paper_id: str, analysis: PaperAnalysis, db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Persist a Summarize & Score result onto its paper. Separate from the
+    general PATCH /{paper_id} (which replaces the whole PaperCreate body) so
+    the frontend can save just the analysis slice without resending title,
+    authors, abstract, etc."""
+    analysis.analyzedAt = _now_iso()
+    result = await db.papers.find_one_and_update(
+        {"id": paper_id, "projectId": project_id},
+        {"$set": {"analysis": analysis.model_dump()}},
         projection={"_id": 0},
         return_document=True,
     )

@@ -1,33 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   BookOpen, ChevronDown, ChevronRight, Loader2, Sparkles,
   Target, FlaskConical, Lightbulb, AlertCircle, Copy, Check, FileText, Award,
+  RotateCcw, Save,
 } from "lucide-react";
-import type { Paper, Project } from "@/types";
+import type { Paper, Project, PaperAnalysis } from "@/types";
+import { savePaperAnalysisApi } from "@/lib/api";
 import ScoringRubricModal from "@/components/ScoringRubricModal";
 import styles from "./styles.module.css";
 
 interface Props {
   papers: Paper[];
   onAddPaper: (paper: Paper) => void;
+  onUpdatePaper?: (paper: Paper) => void;
   project?: Project;
 }
 
-interface AnalysisResult {
+interface AnalysisResult extends PaperAnalysis {
   paperId: string;
-  summary: string;
-  keyFindings: string[];
-  methodology: string;
-  researchGap: string;
-  relevanceScore: number;
-  topicRelevanceScore?: number;
-  topicRelevanceRationale?: string;
-  methodologicalRigorScore?: number;
-  methodologicalRigorRationale?: string;
-  overallRrlRationale?: string;
-  themes: string[];
 }
 
 const SECTIONS = [
@@ -70,7 +62,7 @@ function generateResult(paper: Paper): AnalysisResult {
   };
 }
 
-export default function AnalyzeSummarizeView({ papers, project }: Props) {
+export default function AnalyzeSummarizeView({ papers, onUpdatePaper, project }: Props) {
   const [selectedId, setSelectedId] = useState<string>(papers[0]?.id ?? "");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -78,8 +70,34 @@ export default function AnalyzeSummarizeView({ papers, project }: Props) {
   const [copied, setCopied] = useState(false);
   const [step, setStep] = useState(0);
   const [showRubricModal, setShowRubricModal] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const selectedPaper = papers.find((p) => p.id === selectedId);
+
+  // Hydrate the results pane from whatever's already saved on the paper
+  // (backend-persisted `paper.analysis`) whenever the selected paper changes,
+  // instead of re-running Gemini on every visit to this tab.
+  useEffect(() => {
+    if (selectedPaper?.analysis) {
+      setResult({ paperId: selectedPaper.id, ...selectedPaper.analysis });
+    } else {
+      setResult(null);
+    }
+    setSaveStatus("idle");
+  }, [selectedId, selectedPaper?.analysis]);
+
+  const persistAnalysis = async (paperId: string, analysis: PaperAnalysis) => {
+    if (!project) return; // no project context (e.g. standalone/demo usage) — skip persistence
+    setSaveStatus("saving");
+    try {
+      const savedPaper = await savePaperAnalysisApi(project.id, paperId, analysis);
+      onUpdatePaper?.(savedPaper);
+      setSaveStatus("saved");
+    } catch (err) {
+      console.warn("Failed to save analysis result:", err);
+      setSaveStatus("error");
+    }
+  };
 
   const handleAnalyze = async () => {
     if (!selectedPaper) return;
@@ -90,6 +108,8 @@ export default function AnalyzeSummarizeView({ papers, project }: Props) {
     const stepTimer = setInterval(() => {
       setStep((prev) => (prev < STEPS.length - 1 ? prev + 1 : prev));
     }, 450);
+
+    let finalResult: AnalysisResult;
 
     try {
       const res = await fetch("/api/analyze-abstract", {
@@ -105,7 +125,7 @@ export default function AnalyzeSummarizeView({ papers, project }: Props) {
 
       if (res.ok) {
         const data = await res.json();
-        setResult({
+        finalResult = {
           paperId: selectedPaper.id,
           relevanceScore: data.relevance_score || 88,
           topicRelevanceScore: data.topic_relevance_score || 85,
@@ -121,17 +141,21 @@ export default function AnalyzeSummarizeView({ papers, project }: Props) {
           ]),
           methodology: data.methodology || selectedPaper.methodology || "Quantitative empirical research framework.",
           researchGap: data.research_gap || "Dataset limitations and generalizability constraints.",
-        });
+        };
       } else {
-        setResult(generateResult(selectedPaper));
+        finalResult = generateResult(selectedPaper);
       }
     } catch (err) {
       console.warn("Backend analysis API error, falling back to synthesis engine:", err);
-      setResult(generateResult(selectedPaper));
+      finalResult = generateResult(selectedPaper);
     } finally {
       clearInterval(stepTimer);
       setIsAnalyzing(false);
     }
+
+    setResult(finalResult);
+    const { paperId, ...analysisPayload } = finalResult;
+    await persistAnalysis(selectedPaper.id, analysisPayload);
   };
 
   const toggleSection = (key: string) => {
@@ -179,7 +203,7 @@ export default function AnalyzeSummarizeView({ papers, project }: Props) {
             {papers.map((paper) => (
               <button
                 key={paper.id}
-                onClick={() => { setSelectedId(paper.id); setResult(null); }}
+                onClick={() => setSelectedId(paper.id)}
                 className={`${styles.pickerItem} ${selectedId === paper.id ? styles.selected : ""}`}
               >
                 <FileText
@@ -207,8 +231,12 @@ export default function AnalyzeSummarizeView({ papers, project }: Props) {
           >
             {isAnalyzing
               ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
-              : <Sparkles size={14} />}
-            {isAnalyzing ? STEPS[Math.min(step, STEPS.length - 1)] : "Summarize & Score"}
+              : result?.paperId === selectedId
+                ? <RotateCcw size={14} />
+                : <Sparkles size={14} />}
+            {isAnalyzing
+              ? STEPS[Math.min(step, STEPS.length - 1)]
+              : result?.paperId === selectedId ? "Re-analyze" : "Summarize & Score"}
           </button>
 
           {isAnalyzing && (
@@ -279,6 +307,34 @@ export default function AnalyzeSummarizeView({ papers, project }: Props) {
                       : <Copy size={11} />}
                     {copied ? "Copied" : "Copy"}
                   </button>
+                  {saveStatus !== "idle" && (
+                    <div
+                      style={{
+                        display: "flex", alignItems: "center", gap: 4,
+                        fontSize: 10, fontFamily: "var(--font-mono)",
+                        color: saveStatus === "error" ? "#c77" : "var(--muted-foreground)",
+                      }}
+                    >
+                      {saveStatus === "saving" && (
+                        <>
+                          <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} />
+                          Saving…
+                        </>
+                      )}
+                      {saveStatus === "saved" && (
+                        <>
+                          <Save size={10} style={{ color: "var(--primary)" }} />
+                          Saved
+                        </>
+                      )}
+                      {saveStatus === "error" && (
+                        <>
+                          <AlertCircle size={10} />
+                          Save failed
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className={styles.tags}>
