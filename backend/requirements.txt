@@ -6,3 +6,7 @@ langchain-core
 httpx
 pydantic
 python-dotenv
+motor
+pymongo
+pypdf
+python-multipart

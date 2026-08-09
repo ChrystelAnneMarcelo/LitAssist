@@ -119,7 +119,13 @@ export default function FileListView({
         <div className={styles.topBarRight}>
           <span className={styles.fileCount}>{project.papers.length} files in folder</span>
           <div className={styles.toolbarBtns}>
-            <button className={styles.toolbarBtn} onClick={() => setShowAddModal(true)}>
+            <button
+              className={styles.toolbarBtn}
+              onClick={() => setShowAddModal(true)}
+              disabled={!project.id}
+              title={!project.id ? "Create a project first" : undefined}
+              style={!project.id ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            >
               <Plus size={13} /> Add
             </button>
             <button

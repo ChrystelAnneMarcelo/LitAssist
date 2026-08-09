@@ -3,6 +3,10 @@ backend/main.py
 FastAPI application for LitAssist Python backend.
 Exposes POST /chat which runs the LangGraph agent pipeline.
 """
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import os
 import io
 import re
@@ -10,7 +14,6 @@ import asyncio
 import httpx
 from contextlib import asynccontextmanager
 
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -18,16 +21,17 @@ from pypdf import PdfReader
 
 from agent.schemas import ChatInput, AgentResponse, TokenUsage
 from agent.graph import run_litassist_graph
-
-# Load .env file (GEMINI_API_KEY)
-load_dotenv()
+from db.mongo import connect_to_mongo, close_mongo_connection
+from routers import projects, papers, chats
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("✅ LitAssist Python backend starting…")
     print(f"   API key configured: {'Yes' if os.getenv('GEMINI_API_KEY') or os.getenv('API_KEY') else 'No (offline mode)'}")
+    await connect_to_mongo()
     yield
+    await close_mongo_connection()
     print("⛔ LitAssist Python backend shutting down.")
 
 
@@ -49,6 +53,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(projects.router)
+app.include_router(papers.router)
+app.include_router(chats.router)
 
 
 @app.get("/")
