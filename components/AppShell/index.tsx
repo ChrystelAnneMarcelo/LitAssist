@@ -214,7 +214,7 @@ export default function AppShell() {
     }
   };
 
-  // Notes/Draft views persist to the backend themselves (they need their own
+  // Draft view persists to the backend (it needs its own
   // save-status UI and debouncing); this just keeps AppShell's copy of
   // `projects` in sync afterwards so switching tabs/projects doesn't lose
   // what was just saved.

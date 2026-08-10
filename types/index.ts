@@ -88,4 +88,4 @@ export interface ChatSession {
 
 export type CenterTab = "files" | "analyze" | "draft";
 export type SidebarTab = "files" | "chats";
-export type RightTab = "ask" | "notes";
+export type RightTab = "ask";

@@ -10,6 +10,7 @@ load_dotenv()
 import os
 import io
 import re
+import uuid
 import asyncio
 import httpx
 from contextlib import asynccontextmanager

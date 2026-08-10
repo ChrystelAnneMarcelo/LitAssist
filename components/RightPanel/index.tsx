@@ -1,9 +1,8 @@
 "use client";
 
-import { MessageSquare, FileText, StickyNote } from "lucide-react";
+import { MessageSquare, FileText } from "lucide-react";
 import type { Project, Paper, RightTab, ChatSession, ChatMessage } from "@/types";
 import ChatView from "./ChatView";
-import NotesView from "./NotesView";
 import styles from "./styles.module.css";
 
 interface RightPanelProps {
@@ -21,9 +20,6 @@ interface RightPanelProps {
 
 export default function RightPanel({
   project,
-  tab = "ask",
-  onTabChange,
-  onUpdateProject,
   selectedPapers,
   activeChatSession,
   onUpdateChatMessages,
@@ -36,23 +32,12 @@ export default function RightPanel({
       {/* Header */}
       <div className={styles.header}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <button
-            onClick={() => onTabChange?.("ask")}
-            className={`${styles.tab} ${tab === "ask" ? styles.active : ""}`}
-            style={{ background: "none", border: "none", cursor: "pointer" }}
-          >
-            <MessageSquare size={13} style={{ color: tab === "ask" ? "var(--primary)" : "inherit" }} /> Ask AI
-          </button>
-          <button
-            onClick={() => onTabChange?.("notes")}
-            className={`${styles.tab} ${tab === "notes" ? styles.active : ""}`}
-            style={{ background: "none", border: "none", cursor: "pointer" }}
-          >
-            <StickyNote size={13} style={{ color: tab === "notes" ? "var(--primary)" : "inherit" }} /> Notes
-          </button>
+          <div className={`${styles.tab} ${styles.active}`}>
+            <MessageSquare size={13} style={{ color: "var(--primary)" }} /> Ask AI
+          </div>
         </div>
 
-        {tab === "ask" && selectedPapers.length > 0 && (
+        {selectedPapers.length > 0 && (
           <div className={styles.selectedBadge}>
             <FileText size={9} style={{ color: "var(--primary)" }} />
             <span className={styles.selectedBadgeText}>{selectedPapers.length} selected</span>
@@ -60,20 +45,15 @@ export default function RightPanel({
         )}
       </div>
 
-      {/* Ask AI / Notes */}
-      {tab === "notes" ? (
-        <NotesView project={project} onUpdateProject={onUpdateProject} />
-      ) : (
-        <ChatView
-          project={project}
-          selectedPapers={selectedPapers}
-          activeChatSession={activeChatSession}
-          onUpdateChatMessages={onUpdateChatMessages}
-          onNewChat={onNewChat}
-          selectedModel={selectedModel}
-          onModelChange={onModelChange}
-        />
-      )}
+      <ChatView
+        project={project}
+        selectedPapers={selectedPapers}
+        activeChatSession={activeChatSession}
+        onUpdateChatMessages={onUpdateChatMessages}
+        onNewChat={onNewChat}
+        selectedModel={selectedModel}
+        onModelChange={onModelChange}
+      />
     </div>
   );
 }

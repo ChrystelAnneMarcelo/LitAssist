@@ -94,12 +94,7 @@ export async function deleteProjectApi(id: string): Promise<void> {
   }
 }
 
-export function saveNotesApi(projectId: string, notes: string): Promise<{ notes: string }> {
-  return request(`/projects/${projectId}/notes`, {
-    method: "PUT",
-    body: JSON.stringify({ notes }),
-  });
-}
+
 
 export function saveDraftApi(projectId: string, draft: Draft): Promise<Draft> {
   return request(`/projects/${projectId}/draft`, {

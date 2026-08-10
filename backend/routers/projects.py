@@ -91,15 +91,7 @@ async def delete_project(project_id: str, user=Depends(get_user_from_token), db:
     await db.chat_sessions.delete_many({"projectId": project_id})
 
 
-# ─── Notes (one free-text field per project, still embedded) ────
-@router.put("/{project_id}/notes")
-async def save_notes(project_id: str, body: dict, user=Depends(get_user_from_token), db: AsyncIOMotorDatabase = Depends(get_db)):
-    userId = user["id"] if user else "guest"
-    notes = body.get("notes", "")
-    res = await db.projects.update_one({"id": project_id, "userId": userId}, {"$set": {"notes": notes}})
-    if res.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return {"notes": notes}
+
 
 
 # ─── Draft (RRL draft text + last reviewer result, still embedded) ─
