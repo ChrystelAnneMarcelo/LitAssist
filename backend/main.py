@@ -16,8 +16,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pypdf import PdfReader
 
-from agent.schemas import ChatInput, AgentResponse, TokenUsage
-from agent.graph import run_litassist_graph
+import sys
+from pathlib import Path
+
+# Add backend directory to sys.path if not present so 'agent' module imports resolve from root or backend dir
+backend_dir = str(Path(__file__).parent.resolve())
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
+try:
+    from agent.schemas import ChatInput, AgentResponse, TokenUsage
+    from agent.graph import run_litassist_graph
+except ImportError:
+    from backend.agent.schemas import ChatInput, AgentResponse, TokenUsage
+    from backend.agent.graph import run_litassist_graph
+
 
 # Load .env file (GEMINI_API_KEY)
 load_dotenv()

@@ -933,8 +933,8 @@ def build_graph():
     graph.add_edge("searchTool", "extract")
     graph.add_edge("extract", "synthesize")
 
-    # Direct finish after synthesize for single-pass response, or route to review if requested
-    graph.add_conditional_edges("synthesize", lambda s: "review" if s.get("intent") == "review_only" else "end", {
+    # Route synthesized draft to ReviewerNode for peer review scoring and self-refinement retries
+    graph.add_conditional_edges("synthesize", lambda s: "end" if s.get("draft") == "__FALLBACK__" else "review", {
         "review": "review",
         "end": END,
     })
