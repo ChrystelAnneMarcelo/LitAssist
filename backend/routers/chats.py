@@ -27,9 +27,7 @@ async def list_chats(
     user=Depends(get_user_from_token),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ):
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    userId = user["id"]
+    userId = user["id"] if user else "guest"
     query = {"userId": userId}
     if projectId:
         query["projectId"] = projectId
@@ -39,9 +37,7 @@ async def list_chats(
 
 @router.post("", response_model=ChatSession, status_code=201)
 async def create_chat(body: ChatSessionCreate, user=Depends(get_user_from_token), db: AsyncIOMotorDatabase = Depends(get_db)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    userId = user["id"]
+    userId = user["id"] if user else "guest"
     session = ChatSession(id=str(uuid.uuid4()), userId=userId, projectId=body.projectId, title=body.title)
     await db.chat_sessions.insert_one(session.model_dump())
     return session
@@ -49,9 +45,7 @@ async def create_chat(body: ChatSessionCreate, user=Depends(get_user_from_token)
 
 @router.get("/{chat_id}", response_model=ChatSession)
 async def get_chat(chat_id: str, user=Depends(get_user_from_token), db: AsyncIOMotorDatabase = Depends(get_db)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    userId = user["id"]
+    userId = user["id"] if user else "guest"
     doc = await db.chat_sessions.find_one({"id": chat_id, "userId": userId}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Chat session not found")
@@ -60,19 +54,14 @@ async def get_chat(chat_id: str, user=Depends(get_user_from_token), db: AsyncIOM
 
 @router.delete("/{chat_id}", status_code=204)
 async def delete_chat(chat_id: str, user=Depends(get_user_from_token), db: AsyncIOMotorDatabase = Depends(get_db)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    userId = user["id"]
-    res = await db.chat_sessions.delete_one({"id": chat_id, "userId": userId})
-    if res.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Chat session not found")
+    userId = user["id"] if user else "guest"
+    await db.chat_sessions.delete_one({"id": chat_id, "userId": userId})
+    return None
 
 
 @router.post("/{chat_id}/messages", response_model=ChatMessage, status_code=201)
 async def add_message(chat_id: str, body: ChatMessageCreate, user=Depends(get_user_from_token), db: AsyncIOMotorDatabase = Depends(get_db)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    userId = user["id"]
+    userId = user["id"] if user else "guest"
     message = ChatMessage(id=str(uuid.uuid4()), **body.model_dump())
     res = await db.chat_sessions.update_one({"id": chat_id, "userId": userId}, {"$push": {"messages": message.model_dump()}})
     if res.matched_count == 0:

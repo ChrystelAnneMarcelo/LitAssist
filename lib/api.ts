@@ -85,8 +85,13 @@ export function updateProjectApi(id: string, updates: { name?: string; descripti
   });
 }
 
-export function deleteProjectApi(id: string): Promise<void> {
-  return request<void>(`/projects/${id}`, { method: "DELETE" });
+export async function deleteProjectApi(id: string): Promise<void> {
+  try {
+    await request<void>(`/projects/${id}`, { method: "DELETE" });
+  } catch (err: any) {
+    if (err?.message?.includes("(404)")) return;
+    throw err;
+  }
 }
 
 export function saveNotesApi(projectId: string, notes: string): Promise<{ notes: string }> {
@@ -118,8 +123,13 @@ export function updatePaperApi(projectId: string, paperId: string, paper: Omit<P
   });
 }
 
-export function deletePaperApi(projectId: string, paperId: string): Promise<void> {
-  return request<void>(`/projects/${projectId}/papers/${paperId}`, { method: "DELETE" });
+export async function deletePaperApi(projectId: string, paperId: string): Promise<void> {
+  try {
+    await request<void>(`/projects/${projectId}/papers/${paperId}`, { method: "DELETE" });
+  } catch (err: any) {
+    if (err?.message?.includes("(404)")) return;
+    throw err;
+  }
 }
 
 export function savePaperAnalysisApi(
@@ -145,8 +155,13 @@ export function createChatApi(projectId: string, title: string): Promise<ChatSes
   });
 }
 
-export function deleteChatApi(id: string): Promise<void> {
-  return request<void>(`/chats/${id}`, { method: "DELETE" });
+export async function deleteChatApi(id: string): Promise<void> {
+  try {
+    await request<void>(`/chats/${id}`, { method: "DELETE" });
+  } catch (err: any) {
+    if (err?.message?.includes("(404)")) return;
+    throw err;
+  }
 }
 
 export function addMessageApi(chatId: string, message: Omit<ChatMessage, "id">): Promise<ChatMessage> {

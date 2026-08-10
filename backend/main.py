@@ -14,7 +14,7 @@ import asyncio
 import httpx
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pypdf import PdfReader
@@ -71,6 +71,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def guest_session_middleware(request: Request, call_next):
+    # Ensure every unauthenticated device receives its own unique guest ID cookie
+    guest_cookie = request.cookies.get("litassist_guest")
+    new_guest_id = None
+    if not guest_cookie or not str(guest_cookie).startswith("guest_"):
+        new_guest_id = f"guest_{uuid.uuid4()}"
+        request.state.new_guest_id = new_guest_id
+
+    response = await call_next(request)
+
+    if new_guest_id:
+        response.set_cookie(
+            key="litassist_guest",
+            value=new_guest_id,
+            max_age=31536000,  # 1 year duration
+            httponly=True,
+            samesite="lax",
+            path="/",
+        )
+    return response
 
 
 app.include_router(projects.router)

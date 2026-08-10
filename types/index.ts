@@ -60,8 +60,8 @@ export interface Project {
   papers: Paper[];
   createdAt: string;
   description: string;
-  notes: string;
-  draft: Draft;
+  notes?: string;
+  draft?: Draft;
 }
 
 export interface ChatMessage {
