@@ -1,3 +1,18 @@
+export interface PaperAnalysis {
+  summary: string;
+  keyFindings: string[];
+  methodology: string;
+  researchGap: string;
+  relevanceScore: number;
+  topicRelevanceScore?: number;
+  topicRelevanceRationale?: string;
+  methodologicalRigorScore?: number;
+  methodologicalRigorRationale?: string;
+  overallRrlRationale?: string;
+  themes: string[];
+  analyzedAt?: string;
+}
+
 export interface Paper {
   id: string;
   title: string;
@@ -12,6 +27,31 @@ export interface Paper {
   doi?: string;
   url?: string;
   pdfUrl?: string;
+  analysis?: PaperAnalysis | null;
+}
+
+export interface CriteriaScores {
+  depth: number;
+  structure: number;
+  citations: number;
+  scope: number;
+}
+
+export interface ReviewResult {
+  score: number;
+  feedback: string;
+  criteriaScores?: CriteriaScores;
+  trace: string[];
+  latencyMs: number;
+  modelName: string;
+  tokens: { prompt: number; completion: number; total: number };
+  retries: number;
+}
+
+export interface Draft {
+  text: string;
+  reviewResult?: ReviewResult | null;
+  updatedAt?: string;
 }
 
 export interface Project {
@@ -20,6 +60,8 @@ export interface Project {
   papers: Paper[];
   createdAt: string;
   description: string;
+  notes: string;
+  draft: Draft;
 }
 
 export interface ChatMessage {

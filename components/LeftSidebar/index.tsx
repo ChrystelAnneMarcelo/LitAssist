@@ -16,11 +16,15 @@ interface LeftSidebarProps {
   onSelectProject: (id: string) => void;
   onAddProject: (name: string, description: string) => void;
   onDeleteProject?: (id: string) => void;
+  onRequestDeleteProject?: (id: string) => void;
   onSelectChat?: (chatId: string) => void;
   onNewChat?: () => void;
   onDeleteChat?: (chatId: string) => void;
+  onRequestDeleteChat?: (chatId: string) => void;
   theme?: "dark" | "light";
   onToggleTheme?: () => void;
+  userEmail?: string | null;
+  onSignOut?: () => void;
 }
 
 export default function LeftSidebar({
@@ -33,11 +37,15 @@ export default function LeftSidebar({
   onSelectProject,
   onAddProject,
   onDeleteProject,
+  onRequestDeleteProject,
   onSelectChat,
   onNewChat,
   onDeleteChat,
+  onRequestDeleteChat,
   theme = "dark",
   onToggleTheme,
+  userEmail,
+  onSignOut,
 }: LeftSidebarProps) {
   const [showAddProject, setShowAddProject] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -193,8 +201,8 @@ export default function LeftSidebar({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (projects.length <= 1) {
-                                alert("Cannot delete the last remaining project. Create another project first.");
+                              if (onRequestDeleteProject) {
+                                onRequestDeleteProject(project.id);
                                 return;
                               }
                               if (window.confirm(`Are you sure you want to delete "${project.name}" and all papers inside it?`)) {
@@ -278,7 +286,8 @@ export default function LeftSidebar({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onDeleteChat(chat.id);
+                              if (onRequestDeleteChat) onRequestDeleteChat(chat.id);
+                              else onDeleteChat(chat.id);
                             }}
                             style={{
                               position: "absolute",
@@ -318,11 +327,13 @@ export default function LeftSidebar({
 
             {/* Footer */}
             <div className={styles.footer}>
-              <div className={styles.avatar}>R</div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div className={styles.userName}>Researcher</div>
-                <div className={styles.userPlan}>Free plan</div>
-              </div>
+              <div className={styles.avatar}>{userEmail ? userEmail[0].toUpperCase() : "R"}</div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div className={styles.userName} onClick={() => onSignOut && onSignOut()} style={{ cursor: onSignOut ? "pointer" : "default", fontFamily: "var(--font-sans)", fontSize: "var(--text-base)" }}>
+                    {userEmail || "Researcher"}
+                  </div>
+                  <div className={styles.userPlan}>Free plan</div>
+                </div>
               {onToggleTheme && (
                 <button
                   className={styles.themeToggleBtn}

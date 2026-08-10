@@ -159,6 +159,24 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
+## Testing
+
+This repository includes helper scripts to populate and clean local development data.
+
+-- Seed data: run `python backend/scripts/seed_dev_data.py` to create a development user (`dev_seed@example.com` by default, password `SeedPass123!`) and two projects (`Dev Seed Project 1`, `Dev Seed Project 2`). Each project is populated with two real research papers (Project 1: "Attention Is All You Need" and "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding"; Project 2: "Deep Residual Learning for Image Recognition" and "Adam: A Method for Stochastic Optimization") and one seed chat session. Use `backend/scripts/list_seed_papers.py` to print the created projects and paper metadata. You can override the seed credentials with `DEV_SEED_EMAIL` and `DEV_SEED_PW` environment variables.
+
+- To remove all users and their related projects/chats, run `python backend/scripts/delete_all_users.py` (use with caution; this wipes users, projects, and chats).
+
+Developer scripts:
+
+- `backend/scripts/seed_dev_data.py` — create seed user, two projects, two papers per project, and chat sessions.
+- `backend/scripts/delete_all_users.py` — delete all users and cascade-delete their projects and chats.
+- `backend/scripts/browser_login_test.py` — simulate browser signup/login and verify `litassist_session` cookie behavior.
+- `backend/scripts/test_chats_isolation.py` — integration test confirming chats are isolated per account.
+- `backend/scripts/list_seed_papers.py` — print seeded projects and their paper metadata (verification helper).
+
+---
+
 ## Project Structure
 
 ```
@@ -193,3 +211,5 @@ LitAssist/
 ## License
 
 Distributed under the ISC License.
+
+---
