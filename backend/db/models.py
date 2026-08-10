@@ -63,6 +63,7 @@ class Paper(BaseModel):
     authors: str
     added: str = Field(default_factory=_now_iso)
     abstract: str = ""
+    fullText: Optional[str] = None
     methodology: str = ""
     keyFindings: list[str] = Field(default_factory=list)
     year: str = ""
@@ -81,6 +82,7 @@ class PaperCreate(BaseModel):
     authors: str
     added: str = Field(default_factory=_now_iso)
     abstract: str = ""
+    fullText: Optional[str] = None
     methodology: str = ""
     keyFindings: list[str] = Field(default_factory=list)
     year: str = ""

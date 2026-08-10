@@ -205,6 +205,26 @@ export default function PaperDetailModal({ paper, onClose, project }: PaperDetai
             </div>
           )}
 
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 14px",
+              borderRadius: "var(--radius-lg)",
+              background: paper.fullText ? "rgba(122,184,164,0.08)" : "rgba(230,126,34,0.08)",
+              border: `1px solid ${paper.fullText ? "rgba(122,184,164,0.25)" : "rgba(230,126,34,0.18)"}`,
+              marginTop: 14,
+            }}
+          >
+            <FileText size={14} style={{ color: paper.fullText ? "#7ab8a4" : "#e6a435" }} />
+            <span style={{ fontSize: 12, color: paper.fullText ? "#1f4d3c" : "#7a4f15" }}>
+              {paper.fullText
+                ? "Full paper text is available for this paper. Analysis will use the paper content if needed."
+                : "Full paper text is not available. Analysis will fall back to the abstract only."}
+            </span>
+          </div>
+
           {/* Abstract */}
           {paper.abstract && (
             <div style={{ background: "var(--card)", padding: 14, borderRadius: "var(--radius-lg)", border: "1px solid var(--border)" }}>

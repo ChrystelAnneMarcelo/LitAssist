@@ -19,6 +19,7 @@ export interface Paper {
   authors: string;
   added: string;
   abstract: string;
+  fullText?: string;
   methodology: string;
   keyFindings: string[];
   year: string;
