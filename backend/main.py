@@ -23,6 +23,24 @@ from agent.schemas import ChatInput, AgentResponse, TokenUsage
 from agent.graph import run_litassist_graph
 from db.mongo import connect_to_mongo, close_mongo_connection
 from routers import projects, papers, chats, auth
+import sys
+from pathlib import Path
+
+# Add backend directory to sys.path if not present so 'agent' module imports resolve from root or backend dir
+backend_dir = str(Path(__file__).parent.resolve())
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
+try:
+    from agent.schemas import ChatInput, AgentResponse, TokenUsage
+    from agent.graph import run_litassist_graph
+except ImportError:
+    from backend.agent.schemas import ChatInput, AgentResponse, TokenUsage
+    from backend.agent.graph import run_litassist_graph
+
+
+# Load .env file (GEMINI_API_KEY)
+load_dotenv()
 
 
 @asynccontextmanager
@@ -233,7 +251,7 @@ class AnalyzeInput(BaseModel):
 @app.post("/analyze-abstract")
 async def analyze_abstract(body: AnalyzeInput):
     """
-    Use Gemini AI to analyze a paper using available PDF/text content, falling back to the provided abstract.
+    Use Gemini AI to clean Crossref abstract text and extract methodology, key findings, research gap, and a relevance score; analyze the paper using available PDF/text content and fall back to the provided abstract when needed. Original direct-Gemini implementation is kept intact for parallel operation.
     """
     clean_abstract = re.sub(r"^abstract[—:\s\.\-]*", "", body.abstract, flags=re.I).strip()
     if clean_abstract.startswith("Abstract") and len(clean_abstract) > 8 and clean_abstract[8].isupper():
@@ -335,6 +353,27 @@ async def analyze_abstract(body: AnalyzeInput):
         "research_gap": "The study acknowledges limitations in dataset diversity and geographic scope. Future work should address cross-domain applicability.",
         "relevance_score": 85,
     }
+
+
+@app.post("/analyze-abstract-graph")
+async def analyze_abstract_graph(body: AnalyzeInput):
+    """
+    Parallel test endpoint: Uses ReviewerNode in LangGraph agent pipeline (intent="score_paper")
+    to analyze and score a paper abstract. Runs in parallel alongside /analyze-abstract.
+    """
+    graph_result = await run_litassist_graph(
+        question="",
+        papers=[],
+        project_name=body.project_name,
+        project_description=body.project_description,
+        intent="score_paper",
+        paper_title=body.title,
+        paper_abstract=body.abstract,
+    )
+    if graph_result and graph_result.get("paper_analysis"):
+        return graph_result["paper_analysis"]
+
+    raise HTTPException(status_code=500, detail="Graph execution did not return paper analysis result.")
 
 
 class DoiInput(BaseModel):
