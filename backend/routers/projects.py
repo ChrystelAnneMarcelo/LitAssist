@@ -13,6 +13,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from db.mongo import get_db
 from db.models import Project, ProjectCreate, ProjectUpdate, Draft
+from deps import get_user_from_token
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -38,13 +39,15 @@ async def _attach_papers(db: AsyncIOMotorDatabase, project_docs: list[dict]) -> 
 
 # ─── Projects ────────────────────────────────────────────────────
 @router.get("", response_model=list[Project])
-async def list_projects(userId: str = "guest", db: AsyncIOMotorDatabase = Depends(get_db)):
+async def list_projects(user=Depends(get_user_from_token), db: AsyncIOMotorDatabase = Depends(get_db)):
+    userId = user["id"] if user else "guest"
     docs = await db.projects.find({"userId": userId}, {"_id": 0}).sort("createdAt", -1).to_list(500)
     return await _attach_papers(db, docs)
 
 
 @router.post("", response_model=Project, status_code=201)
-async def create_project(body: ProjectCreate, userId: str = "guest", db: AsyncIOMotorDatabase = Depends(get_db)):
+async def create_project(body: ProjectCreate, user=Depends(get_user_from_token), db: AsyncIOMotorDatabase = Depends(get_db)):
+    userId = user["id"] if user else "guest"
     project = Project(id=str(uuid.uuid4()), userId=userId, name=body.name, description=body.description)
     doc = project.model_dump()
     doc.pop("papers", None)  # papers live in their own collection, never on this doc
@@ -53,8 +56,9 @@ async def create_project(body: ProjectCreate, userId: str = "guest", db: AsyncIO
 
 
 @router.get("/{project_id}", response_model=Project)
-async def get_project(project_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
-    doc = await db.projects.find_one({"id": project_id}, {"_id": 0})
+async def get_project(project_id: str, user=Depends(get_user_from_token), db: AsyncIOMotorDatabase = Depends(get_db)):
+    userId = user["id"] if user else "guest"
+    doc = await db.projects.find_one({"id": project_id, "userId": userId}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Project not found")
     [doc] = await _attach_papers(db, [doc])
@@ -62,12 +66,13 @@ async def get_project(project_id: str, db: AsyncIOMotorDatabase = Depends(get_db
 
 
 @router.patch("/{project_id}", response_model=Project)
-async def update_project(project_id: str, body: ProjectUpdate, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def update_project(project_id: str, body: ProjectUpdate, user=Depends(get_user_from_token), db: AsyncIOMotorDatabase = Depends(get_db)):
     update = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
     if not update:
         raise HTTPException(status_code=400, detail="No fields to update")
+    userId = user["id"] if user else "guest"
     result = await db.projects.find_one_and_update(
-        {"id": project_id}, {"$set": update}, projection={"_id": 0}, return_document=True
+        {"id": project_id, "userId": userId}, {"$set": update}, projection={"_id": 0}, return_document=True
     )
     if not result:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -76,8 +81,9 @@ async def update_project(project_id: str, body: ProjectUpdate, db: AsyncIOMotorD
 
 
 @router.delete("/{project_id}", status_code=204)
-async def delete_project(project_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
-    res = await db.projects.delete_one({"id": project_id})
+async def delete_project(project_id: str, user=Depends(get_user_from_token), db: AsyncIOMotorDatabase = Depends(get_db)):
+    userId = user["id"] if user else "guest"
+    res = await db.projects.delete_one({"id": project_id, "userId": userId})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Project not found")
     # Cascade-delete everything that references this project
@@ -87,9 +93,10 @@ async def delete_project(project_id: str, db: AsyncIOMotorDatabase = Depends(get
 
 # ─── Notes (one free-text field per project, still embedded) ────
 @router.put("/{project_id}/notes")
-async def save_notes(project_id: str, body: dict, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def save_notes(project_id: str, body: dict, user=Depends(get_user_from_token), db: AsyncIOMotorDatabase = Depends(get_db)):
+    userId = user["id"] if user else "guest"
     notes = body.get("notes", "")
-    res = await db.projects.update_one({"id": project_id}, {"$set": {"notes": notes}})
+    res = await db.projects.update_one({"id": project_id, "userId": userId}, {"$set": {"notes": notes}})
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Project not found")
     return {"notes": notes}
@@ -97,9 +104,10 @@ async def save_notes(project_id: str, body: dict, db: AsyncIOMotorDatabase = Dep
 
 # ─── Draft (RRL draft text + last reviewer result, still embedded) ─
 @router.put("/{project_id}/draft", response_model=Draft)
-async def save_draft(project_id: str, draft: Draft, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def save_draft(project_id: str, draft: Draft, user=Depends(get_user_from_token), db: AsyncIOMotorDatabase = Depends(get_db)):
+    userId = user["id"] if user else "guest"
     draft.updatedAt = _now_iso()
-    res = await db.projects.update_one({"id": project_id}, {"$set": {"draft": draft.model_dump()}})
+    res = await db.projects.update_one({"id": project_id, "userId": userId}, {"$set": {"draft": draft.model_dump()}})
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Project not found")
     return draft

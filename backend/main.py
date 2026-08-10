@@ -22,7 +22,7 @@ from pypdf import PdfReader
 from agent.schemas import ChatInput, AgentResponse, TokenUsage
 from agent.graph import run_litassist_graph
 from db.mongo import connect_to_mongo, close_mongo_connection
-from routers import projects, papers, chats
+from routers import projects, papers, chats, auth
 
 
 @asynccontextmanager
@@ -58,6 +58,7 @@ app.add_middleware(
 app.include_router(projects.router)
 app.include_router(papers.router)
 app.include_router(chats.router)
+app.include_router(auth.router)
 
 
 @app.get("/")

@@ -61,6 +61,8 @@ async def ensure_indexes() -> None:
     # (messages stay embedded — no separate collection/index needed for them)
     await db.chat_sessions.create_index([("projectId", 1), ("createdAt", -1)])
     await db.chat_sessions.create_index("userId")
+    # users: unique email
+    await db.users.create_index("email", unique=True)
 
 
 def get_db() -> AsyncIOMotorDatabase:

@@ -190,3 +190,19 @@ class ChatSession(BaseModel):
 class ChatSessionCreate(BaseModel):
     projectId: str
     title: str = "New RRL Chat"
+
+
+# ─── User (authentication) ─────────────────────────────────
+class User(BaseModel):
+    id: str
+    email: str
+    passwordHash: str
+    salt: str
+    createdAt: str = Field(default_factory=_now_iso)
+    sessionToken: Optional[str] = None
+    sessionExpiry: Optional[str] = None
+
+
+class UserCreate(BaseModel):
+    email: str
+    password: str

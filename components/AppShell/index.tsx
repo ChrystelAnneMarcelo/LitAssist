@@ -17,6 +17,9 @@ import {
   deleteChatApi,
   addMessageApi,
 } from "@/lib/api";
+import { logout } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import SignOutModal from "@/components/SignOutModal";
 import styles from "./styles.module.css";
 
 export default function AppShell() {
@@ -30,6 +33,11 @@ export default function AppShell() {
   const [selectedPaperIds, setSelectedPaperIds] = useState<Set<string>>(new Set());
   const [rightTab, setRightTab] = useState<RightTab>("ask");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const router = useRouter();
+  const [showSignOut, setShowSignOut] = useState(false);
+  const [deleteChatCandidate, setDeleteChatCandidate] = useState<string | null>(null);
+  const [deleteProjectCandidate, setDeleteProjectCandidate] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -66,6 +74,8 @@ export default function AppShell() {
 
   useEffect(() => {
     loadFromBackend();
+    const email = localStorage.getItem("litassist-email");
+    setUserEmail(email);
   }, [loadFromBackend]);
 
   const toggleTheme = () => {
@@ -213,7 +223,6 @@ export default function AppShell() {
   };
 
   const handleDeleteProject = async (id: string) => {
-    if (projects.length <= 1) return;
     const prevProjects = projects;
     setProjects((prev) => prev.filter((p) => p.id !== id));
     if (activeProjectId === id) {
@@ -312,12 +321,62 @@ export default function AppShell() {
         onSelectProject={handleSelectProject}
         onAddProject={handleAddProject}
         onDeleteProject={handleDeleteProject}
+        onRequestDeleteProject={(id) => setDeleteProjectCandidate(id)}
         onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}
+        onRequestDeleteChat={(id) => setDeleteChatCandidate(id)}
         theme={theme}
         onToggleTheme={toggleTheme}
+        userEmail={userEmail}
+        onSignOut={() => setShowSignOut(true)}
       />
+
+      <SignOutModal
+        visible={showSignOut}
+        onCancel={() => setShowSignOut(false)}
+        onConfirm={() => {
+          // Clear client-side token and force a full reload to landing page so auth state resets.
+          logout();
+          window.location.href = "/";
+        }}
+      />
+
+      {/* Delete chat confirmation modal */}
+      {deleteChatCandidate && (
+        <div style={{ position: "fixed", left: 0, top: 0, right: 0, bottom: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}>
+          <div style={{ width: 420, padding: 20, borderRadius: 12, background: "var(--card)", boxShadow: "0 20px 60px rgba(0,0,0,0.7)", color: "var(--card-foreground)", transform: "translateY(0)", animation: "fadeInUp 180ms ease" }}>
+            <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 16 }}>Delete chat?</div>
+            <div style={{ color: "var(--muted-foreground)", fontSize: 13 }}>This will permanently delete the selected chat session.</div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }}>
+              <button onClick={() => setDeleteChatCandidate(null)} style={{ padding: "8px 12px", borderRadius: 8, background: "transparent", border: "1px solid var(--border)", color: "var(--foreground)" }}>Cancel</button>
+              <button onClick={async () => {
+                const id = deleteChatCandidate;
+                setDeleteChatCandidate(null);
+                if (id) await handleDeleteChat(id);
+              }} style={{ padding: "8px 12px", borderRadius: 8, background: "var(--destructive)", color: "var(--destructive-foreground)", border: "none" }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete project confirmation modal */}
+      {deleteProjectCandidate && (
+        <div style={{ position: "fixed", left: 0, top: 0, right: 0, bottom: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}>
+          <div style={{ width: 420, padding: 20, borderRadius: 12, background: "var(--card)", boxShadow: "0 20px 60px rgba(0,0,0,0.7)", color: "var(--card-foreground)", transform: "translateY(0)", animation: "fadeInUp 180ms ease" }}>
+            <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 16 }}>Delete project?</div>
+            <div style={{ color: "var(--muted-foreground)", fontSize: 13 }}>This will permanently delete the selected project and all its papers and chats.</div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }}>
+              <button onClick={() => setDeleteProjectCandidate(null)} style={{ padding: "8px 12px", borderRadius: 8, background: "transparent", border: "1px solid var(--border)", color: "var(--foreground)" }}>Cancel</button>
+              <button onClick={async () => {
+                const id = deleteProjectCandidate;
+                setDeleteProjectCandidate(null);
+                if (id) await handleDeleteProject(id);
+              }} style={{ padding: "8px 12px", borderRadius: 8, background: "var(--destructive)", color: "var(--destructive-foreground)", border: "none" }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {hasProjects && activeProject ? (
         <>

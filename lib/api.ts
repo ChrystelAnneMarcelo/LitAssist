@@ -11,11 +11,19 @@
  */
 import type { Project, Paper, PaperAnalysis, Draft, ChatSession, ChatMessage } from "@/types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+// Always use relative `/api` in dev to ensure same-origin cookies by default.
+// If you really need to target an external backend, set `NEXT_PUBLIC_BACKEND_URL`
+// to an absolute URL. By default prefer `/api` so Next.js rewrites/proxy works.
+const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL && process.env.NEXT_PUBLIC_BACKEND_URL.startsWith("http")
+  ? process.env.NEXT_PUBLIC_BACKEND_URL
+  : "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers,
+    credentials: "include",
     ...options,
   });
   if (!res.ok) {
@@ -24,6 +32,38 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
   if (res.status === 204) return undefined as T; // no content (deletes)
   return res.json();
+}
+
+// ─── Auth ───────────────────────────────────────────────────
+export async function signup(email: string, password: string): Promise<{ token: string; email: string }> {
+  const res = await request<{ email: string }>("/auth/signup", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  // server sets httpOnly cookie; verify server session before storing client state
+  await request("/auth/me");
+  localStorage.setItem("litassist-email", res.email);
+  return { token: "", email: res.email };
+}
+
+export async function login(email: string, password: string): Promise<{ token: string; email: string }> {
+  const res = await request<{ email: string }>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  // Ensure the server-side session cookie is recognized before updating UI state
+  await request("/auth/me");
+  localStorage.setItem("litassist-email", res.email);
+  return { token: "", email: res.email };
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await request<void>("/auth/logout", { method: "POST" });
+  } catch (err) {
+    // still clear client-side email
+  }
+  localStorage.removeItem("litassist-email");
 }
 
 // ─── Projects ────────────────────────────────────────────────
