@@ -323,7 +323,7 @@ async def analyze_abstract(body: AnalyzeInput):
                     '  "key_findings": [\n'
                     '    "Empirical finding 1",\n'
                     '    "Empirical finding 2",\n'
-                    '    "Empirical finding 3"\n'
+                    '    "... include as many distinct findings as the abstract actually supports, typically 3-6"\n'
                     '  ],\n'
                     '  "research_gap": "Key limitations, unaddressed questions, or future directions mentioned (1-2 sentences)",\n'
                     '  "topic_relevance_score": <0-100 integer: alignment of paper topics/methods with research scope>,\n'
@@ -349,7 +349,7 @@ async def analyze_abstract(body: AnalyzeInput):
                     return {
                         "clean_abstract": str(parsed.get("clean_abstract") or clean_abstract).strip(),
                         "methodology": str(parsed.get("methodology") or "").strip(),
-                        "key_findings": [str(f).strip() for f in parsed.get("key_findings", []) if str(f).strip()][:3],
+                        "key_findings": [str(f).strip() for f in parsed.get("key_findings", []) if str(f).strip()],
                         "research_gap": str(parsed.get("research_gap") or "The authors acknowledge limitations in dataset scope and cross-domain generalizability.").strip(),
                         "relevance_score": o_score,
                         "topic_relevance_score": t_score,
@@ -368,7 +368,7 @@ async def analyze_abstract(body: AnalyzeInput):
     # Heuristic fallback if AI is rate-limited
     sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", clean_abstract) if s.strip()]
     methodology_fallback = sentences[0] if sentences else clean_abstract[:200]
-    findings_fallback = sentences[1:4] if len(sentences) > 1 else [clean_abstract[:150]]
+    findings_fallback = sentences[1:] if len(sentences) > 1 else [clean_abstract[:150]]
 
     return {
         "clean_abstract": clean_abstract,
@@ -519,7 +519,7 @@ async def resolve_doi(body: DoiInput):
                 "{\n"
                 '  "clean_abstract": "Clean abstract text verbatim",\n'
                 '  "methodology": "Concise 1-2 sentence methodology summary (research design, approaches, datasets)",\n'
-                '  "key_findings": ["Empirical finding 1", "Empirical finding 2", "Empirical finding 3"]\n'
+                '  "key_findings": ["Empirical finding 1", "Empirical finding 2", "... as many distinct findings as the abstract actually supports, typically 3-6"]\n'
                 "}\n\n"
                 f"Title: {title}\nAbstract: {clean_abstract}"
             )
@@ -530,14 +530,14 @@ async def resolve_doi(body: DoiInput):
                 parsed = json.loads(match.group(0))
                 clean_abstract = str(parsed.get("clean_abstract") or clean_abstract).strip()
                 methodology = str(parsed.get("methodology") or "").strip()
-                key_findings = [str(f).strip() for f in parsed.get("key_findings", []) if str(f).strip()][:3]
+                key_findings = [str(f).strip() for f in parsed.get("key_findings", []) if str(f).strip()]
         except Exception as ai_err:
             print(f"[WARN] Gemini abstract analysis failed: {ai_err}")
 
     if not methodology and clean_abstract:
         sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", clean_abstract) if s.strip()]
         methodology = sentences[0] if sentences else ""
-        key_findings = sentences[1:4] if len(sentences) > 1 else []
+        key_findings = sentences[1:] if len(sentences) > 1 else []
 
     return {
         "title": title or query,
@@ -552,4 +552,3 @@ async def resolve_doi(body: DoiInput):
         "url": landing_url,
         "pdf_url": pdf_url,
     }
-
