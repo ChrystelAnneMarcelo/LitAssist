@@ -19,6 +19,7 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
   const [year, setYear] = useState("");
   const [journal, setJournal] = useState("");
   const [abstract, setAbstract] = useState("");
+  const [fullText, setFullText] = useState("");
   const [methodology, setMethodology] = useState("");
   const [keyFindings, setKeyFindings] = useState<string[]>([]);
   const [tags, setTags] = useState("");
@@ -115,8 +116,10 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
           if (item.abstract) {
             const cleanAb = item.abstract.replace(/<[^>]*>?/gm, "").replace(/^abstract[—:\s\.\-]*/i, "").trim();
             setAbstract(cleanAb);
+            setFullText(cleanAb);
           } else {
             setAbstract("");
+            setFullText("");
             setNoAbstractWarning(true);
           }
           setSearchSuccess(`Fetched metadata for "${extTitle.slice(0, 45)}…"`);
@@ -159,6 +162,8 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
         if (data.title) setTitle(data.title);
         if (data.authors) setAuthors(data.authors);
         if (data.abstract) setAbstract(data.abstract);
+        if (data.full_text) setFullText(data.full_text);
+        if (data.full_text) setFullText(data.full_text);
         if (data.year) setYear(data.year);
         if (data.journal) setJournal(data.journal);
         if (data.methodology) setMethodology(data.methodology);
@@ -194,6 +199,7 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
 
         const text = await file.text();
         if (text && text.trim().length > 0) {
+          setFullText(text);
           const abstractMatch = text.match(/abstract[:\s]+([\s\S]{50,800}?)(?=\n\n|\n[A-Z]|introduction|keywords|$)/i);
           if (abstractMatch && abstractMatch[1]) {
             setAbstract(abstractMatch[1].trim());
@@ -242,6 +248,7 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
       year: year.trim() || new Date().getFullYear().toString(),
       journal: journal.trim() || "Academic Publication",
       abstract: abstract.trim() || "No abstract available.",
+      fullText: fullText.trim() || undefined,
       methodology: methodology.trim() || (abstract ? abstract.slice(0, 280) + "…" : "Methodology details not specified."),
       keyFindings: keyFindings.length > 0 ? keyFindings : [
         "Identified as key theoretical/empirical reference for RRL.",

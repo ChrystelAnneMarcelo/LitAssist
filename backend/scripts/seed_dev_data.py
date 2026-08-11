@@ -140,7 +140,35 @@ async def main():
             # avoid duplicates by title for idempotent seeding
             exists_paper = await db.papers.find_one({"title": pap["title"], "projectId": project_id})
             if not exists_paper:
-                await db.papers.insert_one(pap)
+                # normalize fields to match Paper model
+                paper_doc = {
+                    "id": pap["id"],
+                    "projectId": pap["projectId"],
+                    "title": pap["title"],
+                    "authors": pap.get("authors", "Unknown Author"),
+                    "added": pap.get("added", _now_iso()),
+                    "abstract": pap.get("summary", pap.get("abstract", "")),
+                    "methodology": pap.get("methodology", ""),
+                    "keyFindings": pap.get("key_findings", pap.get("keyFindings", [])),
+                    "year": pap.get("year", pap.get("year", "")),
+                    "journal": pap.get("venue", pap.get("journal", "")),
+                    "tags": pap.get("tags", []),
+                    "doi": pap.get("doi"),
+                    "url": pap.get("url"),
+                    "pdfUrl": pap.get("pdfUrl"),
+                }
+                await db.papers.insert_one(paper_doc)
+            else:
+                # ensure abstract/keyFindings/methodology exist for existing paper
+                updates = {}
+                if not exists_paper.get("abstract") and pap.get("summary"):
+                    updates["abstract"] = pap["summary"]
+                if not exists_paper.get("methodology") and pap.get("methodology"):
+                    updates["methodology"] = pap["methodology"]
+                if (not exists_paper.get("keyFindings") or len(exists_paper.get("keyFindings", []))==0) and pap.get("key_findings"):
+                    updates["keyFindings"] = pap["key_findings"]
+                if updates:
+                    await db.papers.update_one({"id": exists_paper["id"]}, {"$set": updates})
         projects.append({"id": project_id, "name": pname})
 
         # Create a chat session for the project

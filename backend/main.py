@@ -267,6 +267,7 @@ async def parse_pdf(file: UploadFile = File(...)):
 class AnalyzeInput(BaseModel):
     title: str
     abstract: str
+    fullText: str = ""
     project_name: str = ""
     project_description: str = ""
 
@@ -274,14 +275,16 @@ class AnalyzeInput(BaseModel):
 @app.post("/analyze-abstract")
 async def analyze_abstract(body: AnalyzeInput):
     """
-    Use Gemini AI to clean Crossref abstract text and extract methodology, key findings, research gap, and relevance score.
-    Original direct-Gemini implementation (kept intact for parallel operation).
+    Use Gemini AI to clean Crossref abstract text and extract methodology, key findings, research gap, and a relevance score; analyze the paper using available PDF/text content and fall back to the provided abstract when needed. Original direct-Gemini implementation is kept intact for parallel operation.
     """
     clean_abstract = re.sub(r"^abstract[—:\s\.\-]*", "", body.abstract, flags=re.I).strip()
     if clean_abstract.startswith("Abstract") and len(clean_abstract) > 8 and clean_abstract[8].isupper():
         clean_abstract = clean_abstract[8:].strip()
 
-    if not clean_abstract or len(clean_abstract) < 25:
+    text_to_analyze = body.fullText.strip() or clean_abstract
+    use_full_text = bool(body.fullText and len(body.fullText.strip()) >= 200)
+
+    if not text_to_analyze or len(text_to_analyze) < 25:
         return {
             "clean_abstract": clean_abstract,
             "methodology": "No methodology detailed in brief abstract.",
@@ -303,10 +306,16 @@ async def analyze_abstract(body: AnalyzeInput):
                         + "\n"
                     )
 
+                text_label = "Abstract"
+                text_content = clean_abstract
+                if use_full_text:
+                    text_label = "Full paper text"
+                    text_content = text_to_analyze
+
                 prompt = (
                     "You are an academic paper analyzer and peer reviewer.\n"
                     + (f"Evaluate and score this paper against this specific research scope:{scope_context}" if scope_context else "")
-                    + "Analyze this paper title and abstract.\n"
+                    + f"Analyze this paper title and {text_label}.\n"
                     "Return ONLY a valid JSON object matching this structure with no extra text or markdown:\n"
                     "{\n"
                     '  "clean_abstract": "Abstract text stripped of any leading Abstract header words",\n'
@@ -325,7 +334,7 @@ async def analyze_abstract(body: AnalyzeInput):
                     '  "overall_rrl_rationale": "1 concise sentence explaining how this paper advances the literature review"\n'
                     "}\n\n"
                     f"Title: {body.title}\n"
-                    f"Abstract: {clean_abstract}"
+                    f"{text_label}: {text_content}"
                 )
 
                 res = llm.invoke(prompt)

@@ -6,6 +6,8 @@ export const INITIAL_PROJECTS: Project[] = [
     name: "Lettuce health detection",
     description: "AI-based methods for detecting diseases and deficiencies in lettuce crops",
     createdAt: "May 9, 2026",
+    notes: "",
+    draft: { text: "", reviewResult: null, updatedAt: "May 9, 2026" },
     papers: [
       {
         id: "p1-1",
@@ -110,6 +112,8 @@ export const INITIAL_PROJECTS: Project[] = [
     name: "Age reversal research",
     description: "Cellular reprogramming and longevity interventions in biological systems",
     createdAt: "May 9, 2026",
+    notes: "",
+    draft: { text: "", reviewResult: null, updatedAt: "May 9, 2026" },
     papers: [
       {
         id: "p2-1",
@@ -142,6 +146,8 @@ export const INITIAL_PROJECTS: Project[] = [
     name: "AI in Education",
     description: "Impact of artificial intelligence tools on student research outcomes",
     createdAt: "Jun 1, 2026",
+    notes: "",
+    draft: { text: "", reviewResult: null, updatedAt: "Jun 1, 2026" },
     papers: [
       {
         id: "p3-1",

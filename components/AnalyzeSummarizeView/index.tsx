@@ -73,6 +73,8 @@ export default function AnalyzeSummarizeView({ papers, onUpdatePaper, project }:
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const selectedPaper = papers.find((p) => p.id === selectedId);
+  const selectedFullText = selectedPaper?.fullText?.trim();
+  const hasFullText = Boolean(selectedFullText && selectedFullText.length >= 200);
 
   // Hydrate the results pane from whatever's already saved on the paper
   // (backend-persisted `paper.analysis`) whenever the selected paper changes,
@@ -118,6 +120,7 @@ export default function AnalyzeSummarizeView({ papers, onUpdatePaper, project }:
         body: JSON.stringify({
           title: selectedPaper.title,
           abstract: selectedPaper.abstract || "",
+          fullText: selectedPaper.fullText || "",
           project_name: project?.name ?? "",
           project_description: project?.description ?? "",
         }),
@@ -288,6 +291,9 @@ export default function AnalyzeSummarizeView({ papers, onUpdatePaper, project }:
                     {selectedPaper.authors} · {selectedPaper.year}
                     {selectedPaper.journal && <span> · {selectedPaper.journal}</span>}
                   </div>
+                  <div style={{ marginTop: 6, fontSize: 11, color: hasFullText ? "#7ab8a4" : "#e6a435", fontFamily: "var(--font-mono)" }}>
+                    {hasFullText ? "Analysis uses full paper text." : "No full text available; analysis uses abstract only."}
+                  </div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
                   <button
@@ -344,6 +350,25 @@ export default function AnalyzeSummarizeView({ papers, onUpdatePaper, project }:
               </div>
             </div>
 
+            {(!hasFullText || !selectedPaper.fullText) && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "12px 14px",
+                  borderRadius: "var(--radius-lg)",
+                  background: "rgba(230, 126, 34, 0.08)",
+                  border: "1px solid rgba(230, 126, 34, 0.18)",
+                  marginBottom: 18,
+                }}
+              >
+                <AlertCircle size={14} style={{ color: "#e6a435" }} />
+                <span style={{ fontSize: 12, color: "#e6a435", lineHeight: 1.4 }}>
+                  No full paper text is stored for this paper, so the AI will analyze the abstract only. For best results, upload a PDF or paste the full paper text in Paper details.
+                </span>
+              </div>
+            )}
             {/* Scoring & Appraisal Criteria Breakdown Card */}
             <div className={styles.breakdownCard}>
               <div className={styles.breakdownTitle}>
