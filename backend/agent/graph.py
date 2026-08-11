@@ -989,6 +989,7 @@ async def run_litassist_graph(
         err_str = str(err)
         print(f"[WARN] Graph execution failed on model '{model_name}': {err_str[:140]}")
         last_error = err_str
+        result = None
 
     latency_ms = int((time.time() - start_time) * 1000)
 
@@ -1004,7 +1005,7 @@ async def run_litassist_graph(
             f"⚠️ **API Quota Limit Reached for {label}**\n\n"
             f"The rate limit or quota for **{label}** has been reached. "
             f"Please switch to another model using the **Model** dropdown selector below "
-            f"(e.g., *Gemini 3.5 Flash* or *Gemini 3.6 Flash*) to continue your analysis."
+            f"(e.g., *Gemini 3.5 Flash* or *Gemini Flash Auto*) to continue your analysis."
         )
         return {
             "text": quota_msg,

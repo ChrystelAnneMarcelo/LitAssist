@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   FileText, Sparkles, Copy, Check, RotateCcw, Award,
   CheckCircle2, AlertTriangle, Clock, Hash, HelpCircle,
-  ChevronDown, ChevronRight, Activity, Terminal, Loader2, Save, AlertCircle,
+  ChevronDown, ChevronRight, Activity, Terminal, Loader2, Save, AlertCircle, Wand2,
 } from "lucide-react";
 import type { Project, ReviewResult } from "@/types";
 import { saveDraftApi } from "@/lib/api";
@@ -18,6 +18,12 @@ interface Props {
   onUpdateProject?: (projectId: string, updates: Partial<Project>) => void;
 }
 
+const MODELS = [
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+  { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
+  { id: "gemini-flash-latest", label: "Gemini Flash Auto" },
+] as const;
+
 const SAVE_DEBOUNCE_MS = 800;
 
 export default function MyDraftView({ project, selectedModel: propModel, onModelChange, onUpdateProject }: Props) {
@@ -27,11 +33,31 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
   const currentModel = propModel ?? localModel;
   const setModel = onModelChange ?? setLocalModel;
   const [isReviewing, setIsReviewing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [reviewResult, setReviewResult] = useState<ReviewResult | null>(project.draft?.reviewResult ?? null);
   const [copied, setCopied] = useState(false);
   const [showRubricModal, setShowRubricModal] = useState(false);
   const [showTrace, setShowTrace] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  // Token usage from the last "Generate AI Draft" call
+  const [draftTokens, setDraftTokens] = useState<{ prompt: number; completion: number; total: number } | null>(() => {
+    const saved = sessionStorage.getItem(`litassist_draft_tokens_${project.id}`);
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [showModelMenu, setShowModelMenu] = useState(false);
+  const generateBtnRef = useRef<HTMLDivElement>(null);
+
+  // Close the model picker on outside click
+  useEffect(() => {
+    if (!showModelMenu) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (generateBtnRef.current && !generateBtnRef.current.contains(e.target as Node)) {
+        setShowModelMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [showModelMenu]);
 
   const reviewResultRef = useRef<ReviewResult | null>(reviewResult);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -42,6 +68,8 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
     setReviewResult(project.draft?.reviewResult ?? null);
     reviewResultRef.current = project.draft?.reviewResult ?? null;
     setSaveStatus("idle");
+    const saved = sessionStorage.getItem(`litassist_draft_tokens_${project.id}`);
+    setDraftTokens(saved ? JSON.parse(saved) : null); 
   }, [project.id]);
 
   const persistDraft = (text: string, result: ReviewResult | null, immediate = false) => {
@@ -82,7 +110,9 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
       setDraftText("");
       setReviewResult(null);
       reviewResultRef.current = null;
+      setDraftTokens(null);
       persistDraft("", null, true);
+      sessionStorage.removeItem(`litassist_draft_tokens_${project.id}`);
     }
   };
 
@@ -95,6 +125,65 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
   const hasMinLength = words >= 120;
   const hasHeaders = /#+\s/.test(draftText);
   const hasCitations = /\b(19|20)\d{2}\b/.test(draftText) || /et al\./i.test(draftText);
+
+  // Execute SynthesizeNode (draft generation) via backend /chat endpoint.
+  const handleGenerateDraft = async (modelOverride?: string) => {
+    if (isGenerating || isReviewing) return;
+
+    if (project.papers.length === 0) {
+      alert("Add at least one paper to this project before generating a draft.");
+      return;
+    }
+    if (draftText.trim() && !window.confirm("This will replace your current draft text. Continue?")) {
+      return;
+    }
+    const modelToUse = modelOverride ?? currentModel;
+
+    setIsGenerating(true);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question:
+            "Write this as a formal academic RRL (Review of Related Literature) chapter, exactly as it " +
+            "would appear in a submitted thesis manuscript — flowing prose paragraphs only, no bullet " +
+            "points or bold labels, no standalone critique or assessment section. Synthesize related " +
+            "sources together within paragraphs rather than one section per source. Use specific, " +
+            "content-derived subheadings (name the actual technique or theme), not generic labels. Cite " +
+            "in-text as (Author, Year). Do not describe what this review will cover or restate the " +
+            "guiding question verbatim — begin directly with the content.",
+          papers: project.papers,
+          projectName: project.name,
+          projectDescription: project.description,
+          modelName: modelToUse,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const generatedText = typeof data.text === "string" ? data.text : "";
+        if (!generatedText.trim()) {
+          alert("The AI didn't return any draft text. Please try again.");
+          return;
+        }
+        setDraftText(generatedText);
+        setReviewResult(null);
+        reviewResultRef.current = null;
+        const tokens = data.tokens || { prompt: 0, completion: 0, total: 0 };
+        setDraftTokens(tokens);
+        sessionStorage.setItem(`litassist_draft_tokens_${project.id}`, JSON.stringify(tokens));
+        persistDraft(generatedText, null, true);
+      } else {
+        alert("Failed to generate a draft. Please check your backend connection.");
+      }
+    } catch (err) {
+      console.error("Error generating draft:", err);
+      alert("Error reaching the draft generator.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   // Execute ReviewerNode via backend /chat endpoint
   const handleReviewDraft = async () => {
@@ -134,8 +223,6 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
         };
         setReviewResult(nextResult);
         reviewResultRef.current = nextResult;
-        // Save immediately (not debounced) — a fresh review result shouldn't
-        // sit unsaved behind the text-change debounce window.
         persistDraft(draftText, nextResult, true);
       } else {
         alert("Failed to evaluate draft. Please check your backend connection.");
@@ -194,10 +281,43 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
             </button>
           </div>
 
+          <div className={styles.splitBtnGroup} ref={generateBtnRef}>
+            <button
+              onClick={() => setShowModelMenu((v) => !v)}
+              disabled={isGenerating || isReviewing || project.papers.length === 0}
+              className={styles.splitBtnMain}
+              title={project.papers.length === 0 ? "Add papers to this project first" : "Choose a model to generate with"}
+            >
+              <Wand2 size={14} className={isGenerating ? "animate-spin" : ""} />
+              <span>{isGenerating ? "Generating Draft…" : "Generate AI Draft"}</span>
+              <ChevronDown size={12} />
+            </button>
+
+            {showModelMenu && (
+              <div className={styles.modelMenu}>
+                {MODELS.map((m) => (
+                  <button
+                    key={m.id}
+                    className={styles.modelMenuItem}
+                    onClick={() => {
+                      setShowModelMenu(false);
+                      setModel(m.id);
+                      handleGenerateDraft(m.id);
+                    }}
+                  >
+                    <span>{m.label}</span>
+                    {m.id === currentModel && <Check size={12} style={{ color: "var(--primary)" }} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={handleReviewDraft}
-            disabled={!draftText.trim() || isReviewing}
+            disabled={!draftText.trim() || isReviewing || isGenerating}
             className={styles.reviewPrimaryBtn}
+            title={`Review using ${MODELS.find(m => m.id === currentModel)?.label ?? currentModel}`}
           >
             <Sparkles size={14} className={isReviewing ? "animate-spin" : ""} />
             <span>{isReviewing ? "Evaluating Rigor…" : "Review This Draft"}</span>
@@ -238,9 +358,14 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
           <textarea
             value={draftText}
             onChange={(e) => handleDraftChange(e.target.value)}
-            placeholder={`Write or paste your Literature Review section here...\n\nExample:\n## Literature Review\nRecent empirical studies (Author et al., 2025) demonstrate that...`}
+            placeholder={
+              isGenerating
+                ? "Generating…"
+                : `Write or paste your Literature Review section here, or click "Generate AI Draft" above to synthesize one from this project's papers...\n\nExample:\n## Literature Review\nRecent empirical studies (Author et al., 2025) demonstrate that...`
+            }
             className={styles.editorTextarea}
             spellCheck={false}
+            disabled={isGenerating}
           />
         </div>
 
@@ -257,6 +382,12 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
             <Clock size={11} />
             <span>~{readingTimeMin} min read</span>
           </div>
+          {draftTokens && (
+            <div className={styles.statItem} title="Token usage from the last AI draft generation">
+              <Activity size={11} />
+              <span>{draftTokens.prompt} in / {draftTokens.completion} out tokens</span>
+            </div>
+          )}
         </div>
       </div>
 
