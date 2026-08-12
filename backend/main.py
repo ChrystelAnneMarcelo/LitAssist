@@ -24,6 +24,8 @@ from agent.schemas import ChatInput, AgentResponse, TokenUsage
 from agent.graph import run_litassist_graph
 from db.mongo import connect_to_mongo, close_mongo_connection
 from routers import projects, papers, chats, auth
+import verification
+from verification import _similarity, SIMILARITY_THRESHOLD
 import sys
 from pathlib import Path
 
@@ -171,6 +173,9 @@ async def parse_pdf(file: UploadFile = File(...)):
         if not full_text:
             return {"error": "Could not extract text from PDF (file may be scanned image or empty)."}
 
+        # Local, zero-cost authenticity signal — no LLM or network call needed
+        content_check = verification.check_pdf_content_quality(full_text, len(reader.pages))
+
         # Use Gemini AI with failover for accurate metadata extraction
         try:
             from agent.graph import get_llm
@@ -232,8 +237,11 @@ async def parse_pdf(file: UploadFile = File(...)):
                 if not isinstance(key_findings, list):
                     key_findings = []
 
+                extracted_title = str(parsed.get("title") or file.filename.replace(".pdf", "")).strip()
+                index_check = await verification.verify_against_indexes(extracted_title)
+
                 return {
-                    "title": str(parsed.get("title") or file.filename.replace(".pdf", "")).strip(),
+                    "title": extracted_title,
                     "authors": authors_str.strip(),
                     "abstract": str(parsed.get("abstract") or "Abstract extracted from PDF.").strip(),
                     "methodology": str(parsed.get("methodology") or "").strip(),
@@ -242,6 +250,8 @@ async def parse_pdf(file: UploadFile = File(...)):
                     "journal": str(parsed.get("journal") or "Academic Publication").strip(),
                     "full_text": full_text[:3000],
                     "num_pages": len(reader.pages),
+                    "content_check": content_check,
+                    "verification": index_check,
                 }
         except Exception as ai_err:
             print(f"[WARN] Gemini PDF extraction fallback: {ai_err}")
@@ -249,15 +259,19 @@ async def parse_pdf(file: UploadFile = File(...)):
         # Fallback to filename if AI extraction fails
         raw_filename = file.filename or "Research Paper"
         clean_title = raw_filename.replace(".pdf", "").replace("_", " ").replace("-", " ").strip()
+        fallback_title = clean_title.title()
+        index_check = await verification.verify_against_indexes(fallback_title)
 
         return {
-            "title": clean_title.title(),
+            "title": fallback_title,
             "authors": "Unknown Author",
             "abstract": full_text[:800].strip(),
             "year": "2025",
             "journal": "Academic Publication",
             "full_text": full_text[:3000],
             "num_pages": len(reader.pages),
+            "content_check": content_check,
+            "verification": index_check,
         }
     except Exception as e:
         print(f"[ERROR] PDF parsing failed: {e}")
@@ -294,7 +308,7 @@ async def analyze_abstract(body: AnalyzeInput):
         }
 
     try:
-        from agent.graph import get_llm
+        from agent.graph import get_llm, _extract_llm_text
         for model_id in ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-flash-latest"]:
             try:
                 llm = get_llm(model_id)
@@ -338,7 +352,7 @@ async def analyze_abstract(body: AnalyzeInput):
                 )
 
                 res = llm.invoke(prompt)
-                raw = res.content if isinstance(res.content, str) else str(res.content)
+                raw = _extract_llm_text(res.content)
                 match = re.search(r"\{[\s\S]*\}", raw)
                 if match:
                     parsed = json.loads(match.group(0))
@@ -425,6 +439,13 @@ async def resolve_doi(body: DoiInput):
     pdf_url = ""
     landing_url = f"https://doi.org/{clean_doi}" if clean_doi else ""
     tags = ["RRL Source", "Scholarly Paper"]
+    resolved_source = None  # tracks which index actually supplied the metadata
+    match_similarity = 0.0  # actual similarity score, not just a pass/fail flag
+    # clean_doi means an exact DOI lookup (identifier, not a search) —
+    # inherently trustworthy. No clean_doi means the fallback branch below
+    # did a FUZZY text search, which returns the index's best-guess closest
+    # result no matter how loosely related — that must be similarity-checked
+    # against the query before being trusted as a genuine match.
 
     try:
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
@@ -447,6 +468,11 @@ async def resolve_doi(body: DoiInput):
                     data = data["items"][0]
 
                 title = (data.get("title") or [""])[0]
+                if title:
+                    sim = 1.0 if clean_doi else _similarity(query, title)
+                    match_similarity = max(match_similarity, sim)
+                    if sim >= SIMILARITY_THRESHOLD:
+                        resolved_source = "Crossref"
                 if data.get("author"):
                     raw_authors = [f"{a.get('family', '')}, {a.get('given', '')}".strip(", ") for a in data["author"]]
                     if len(raw_authors) > 2:
@@ -479,6 +505,11 @@ async def resolve_doi(body: DoiInput):
                     oa_data = items[0]
                     if not title:
                         title = oa_data.get("title") or ""
+                        if title:
+                            sim = 1.0 if clean_doi else _similarity(query, title)
+                            match_similarity = max(match_similarity, sim)
+                            if sim >= SIMILARITY_THRESHOLD:
+                                resolved_source = "OpenAlex"
                     if not authors and oa_data.get("authorships"):
                         names = [a.get("author", {}).get("display_name", "") for a in oa_data["authorships"]]
                         if len(names) > 2:
@@ -511,7 +542,7 @@ async def resolve_doi(body: DoiInput):
     key_findings = []
     if title and clean_abstract:
         try:
-            from agent.graph import get_llm
+            from agent.graph import get_llm, _extract_llm_text
             llm = get_llm("gemini-2.5-flash")
             prompt = (
                 "You are an academic paper analyzer. Analyze this paper title and abstract.\n"
@@ -524,7 +555,7 @@ async def resolve_doi(body: DoiInput):
                 f"Title: {title}\nAbstract: {clean_abstract}"
             )
             res = llm.invoke(prompt)
-            raw = res.content if isinstance(res.content, str) else str(res.content)
+            raw = _extract_llm_text(res.content)
             match = re.search(r"\{[\s\S]*\}", raw)
             if match:
                 parsed = json.loads(match.group(0))
@@ -539,6 +570,12 @@ async def resolve_doi(body: DoiInput):
         methodology = sentences[0] if sentences else ""
         key_findings = sentences[1:] if len(sentences) > 1 else []
 
+    verification_result = (
+        {"matched": True, "source": resolved_source, "url": landing_url or None, "similarity": round(match_similarity, 2)}
+        if resolved_source
+        else {"matched": False, "source": None, "url": None, "similarity": round(match_similarity, 2)}
+    )
+
     return {
         "title": title or query,
         "authors": authors or "Unknown Author",
@@ -551,4 +588,5 @@ async def resolve_doi(body: DoiInput):
         "doi": clean_doi,
         "url": landing_url,
         "pdf_url": pdf_url,
+        "verification": verification_result,
     }

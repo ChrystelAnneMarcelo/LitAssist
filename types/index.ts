@@ -13,6 +13,18 @@ export interface PaperAnalysis {
   analyzedAt?: string;
 }
 
+export interface PaperVerification {
+  matched: boolean;
+  source: string | null;
+  url: string | null;
+  similarity: number;
+}
+
+export interface PaperContentCheck {
+  passed: boolean;
+  reason: string | null;
+}
+
 export interface Paper {
   id: string;
   title: string;
@@ -29,6 +41,10 @@ export interface Paper {
   url?: string;
   pdfUrl?: string;
   analysis?: PaperAnalysis | null;
+  source?: "doi" | "pdf_upload" | "manual";
+  publicationType?: "published" | "preprint" | "thesis" | "working_paper" | "unpublished";
+  verification?: PaperVerification | null;
+  contentCheck?: PaperContentCheck | null;
 }
 
 export interface CriteriaScores {

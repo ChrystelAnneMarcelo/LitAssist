@@ -73,6 +73,11 @@ class Paper(BaseModel):
     url: Optional[str] = None
     pdfUrl: Optional[str] = None
     analysis: Optional[PaperAnalysis] = None
+    # Source verification fields (see backend/verification.py)
+    source: str = "manual"  # "doi" | "pdf_upload" | "manual"
+    publicationType: str = "published"  # "published" | "preprint" | "thesis" | "working_paper" | "unpublished"
+    verification: Optional[dict] = None  # {matched, source, url, similarity} — index-match check
+    contentCheck: Optional[dict] = None  # {passed, reason} — PDF-upload-only local content check
 
 
 class PaperCreate(BaseModel):
@@ -91,6 +96,10 @@ class PaperCreate(BaseModel):
     doi: Optional[str] = None
     url: Optional[str] = None
     pdfUrl: Optional[str] = None
+    source: str = "manual"
+    publicationType: str = "published"
+    verification: Optional[dict] = None
+    contentCheck: Optional[dict] = None
 
 
 # ─── Draft (RRL draft + last review result, one per project) ───
