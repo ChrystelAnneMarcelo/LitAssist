@@ -11,6 +11,9 @@ export interface PaperAnalysis {
   overallRrlRationale?: string;
   themes: string[];
   analyzedAt?: string;
+  trace?: string[];
+  latencyMs?: number;
+  modelName?: string;
 }
 
 export interface Paper {
@@ -40,6 +43,7 @@ export interface CriteriaScores {
 
 export interface ReviewResult {
   score: number;
+  aiGeneratedScore?: number;
   feedback: string;
   criteriaScores?: CriteriaScores;
   trace: string[];

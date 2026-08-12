@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Award, CheckCircle2, Sliders, Info, FileText, Target, Hash } from "lucide-react";
+import { X, Award, CheckCircle2, Sliders, Info, FileText, Target, Hash, Sparkles } from "lucide-react";
 import type { Project } from "@/types";
 import styles from "./styles.module.css";
 
@@ -251,6 +251,21 @@ export default function ScoringRubricModal({
                   <li><strong>Limitations:</strong> Methodological gaps, unaddressed assumptions, or contextual constraints.</li>
                   <li><strong>RRL Contribution:</strong> How effectively the study fills research gaps and provides grounding for "{activeName}".</li>
                 </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Separate AI Detection Callout */}
+          {isDraft && (
+            <div className={styles.introBox} style={{ background: "rgba(122,184,164,0.06)", border: "1px solid rgba(122,184,164,0.2)", marginTop: 16 }}>
+              <Sparkles size={16} style={{ color: "#7ab8a4", flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <p className={styles.introText} style={{ fontWeight: 600, color: "var(--foreground)" }}>
+                  Separate AI Content &amp; Authenticity Detector (Lower is Better)
+                </p>
+                <p className={styles.introSubtext}>
+                  AI Generation Content scoring operates separately from academic rubrics. A lower AI score (&lt;25%) confirms authentic human phrasing and custom literature synthesis. High scores (&gt;50%) indicate heavy machine-generated patterns and trigger revision recommendations.
+                </p>
               </div>
             </div>
           )}
