@@ -599,7 +599,7 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
 
               <div className={styles.traceMetrics}>
                 <span>Model: {reviewResult.modelName}</span>
-                <span>Tokens: {reviewResult.tokens.total}</span>
+                <span>Tokens: {reviewResult.tokens.prompt} in / {reviewResult.tokens.completion} out</span>
                 <span>Retries: {reviewResult.retries}</span>
               </div>
 

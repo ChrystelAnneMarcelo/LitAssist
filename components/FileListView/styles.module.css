@@ -9,6 +9,35 @@
   min-width: 0;
   height: 100%;
   overflow: hidden;
+  position: relative;
+}
+
+.tutorialBubble {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 30;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: var(--primary);
+  color: var(--background);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.tutorialBubble:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.34);
+  filter: brightness(1.04);
 }
 
 /* ─── Top bar ── */
