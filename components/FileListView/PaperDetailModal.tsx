@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, BookOpen, Target, FlaskConical, Copy, Check, Calendar, User, Tag, BookMarked, ExternalLink, FileText, Award, ShieldCheck, ShieldAlert, ShieldQuestion } from "lucide-react";
+import { X, BookOpen, Target, FlaskConical, Copy, Check, Calendar, User, Tag, BookMarked, ExternalLink, FileText, Award, Lock, ShieldCheck, ShieldAlert, ShieldQuestion } from "lucide-react";
 import type { Paper, Project } from "@/types";
 import ScoringRubricModal from "@/components/ScoringRubricModal";
 import styles from "./styles.module.css";
@@ -107,80 +107,43 @@ export default function PaperDetailModal({ paper, onClose, project }: PaperDetai
               {paper.journal && <span>Journal: {paper.journal}</span>}
             </div>
 
-            {/* Tags */}
-            {paper.tags.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
-                {paper.tags.map((t) => (
-                  <span
-                    key={t}
-                    style={{
-                      fontSize: 10,
-                      fontFamily: "var(--font-mono)",
-                      padding: "3px 8px",
-                      borderRadius: 9999,
-                      background: "rgba(201,169,110,0.08)",
-                      color: "var(--primary)",
-                      border: "1px solid rgba(201,169,110,0.2)",
-                    }}
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            )}
+            {/* Tags & Access Status Badge */}
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginTop: 10 }}>
+              {paper.tags.map((t) => (
+                <span
+                  key={t}
+                  style={{
+                    fontSize: 10,
+                    fontFamily: "var(--font-mono)",
+                    padding: "3px 8px",
+                    borderRadius: 9999,
+                    background: "rgba(201,169,110,0.08)",
+                    color: "var(--primary)",
+                    border: "1px solid rgba(201,169,110,0.2)",
+                  }}
+                >
+                  {t}
+                </span>
+              ))}
 
-            {/* Source & Verification */}
-            {(paper.source || paper.publicationType) && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 10, fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--muted-foreground)" }}>
-                {paper.source && (
-                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <ShieldCheck size={12} style={{ color: "var(--primary)" }} />
-                    Source: {SOURCE_LABELS[paper.source] || paper.source}
-                  </span>
-                )}
-                {paper.publicationType && (
-                  <span>{PUBLICATION_TYPE_LABELS[paper.publicationType] || paper.publicationType}</span>
-                )}
-              </div>
-            )}
-            {paper.contentCheck && !paper.contentCheck.passed && (
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 8, fontSize: 11, fontFamily: "var(--font-mono)", color: "#e67e22", background: "rgba(230,126,34,0.08)", border: "1px solid rgba(230,126,34,0.25)", padding: "6px 10px", borderRadius: "var(--radius)" }}>
-                <ShieldAlert size={12} style={{ flexShrink: 0, marginTop: 1 }} />
-                <span>{paper.contentCheck.reason}</span>
-              </div>
-            )}
-            {(paper.publicationType === "published" || paper.publicationType === "preprint" || !paper.publicationType) && paper.verification && (
-              <div
+              <span
                 style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 6,
-                  marginTop: 8,
-                  fontSize: 11,
+                  fontSize: 10,
                   fontFamily: "var(--font-mono)",
-                  color: paper.verification.matched ? "var(--primary)" : "var(--muted-foreground)",
+                  padding: "3px 8px",
+                  borderRadius: 6,
+                  background: (paper.fullText && paper.fullText.trim().length >= 200) ? "rgba(122,184,164,0.12)" : "rgba(230,164,53,0.12)",
+                  color: (paper.fullText && paper.fullText.trim().length >= 200) ? "#7ab8a4" : "#e6a435",
+                  border: `1px solid ${(paper.fullText && paper.fullText.trim().length >= 200) ? "#7ab8a440" : "#e6a43540"}`,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
                 }}
               >
-                {paper.verification.matched ? <ShieldCheck size={12} style={{ flexShrink: 0, marginTop: 1 }} /> : <ShieldQuestion size={12} style={{ flexShrink: 0, marginTop: 1 }} />}
-                {paper.verification.matched ? (
-                  <span>
-                    Found in {paper.verification.source}
-                    {paper.verification.url && (
-                      <> — <a href={paper.verification.url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>view record</a></>
-                    )}
-                  </span>
-                ) : (
-                  <span>
-                    Not independently indexed
-                    {paper.verification.similarity > 0 ? (
-                      <> — closest result was only {Math.round(paper.verification.similarity * 100)}% similar, below the confidence threshold.</>
-                    ) : (
-                      <>.</>
-                    )}
-                  </span>
-                )}
-              </div>
-            )}
+                {(paper.fullText && paper.fullText.trim().length >= 200) ? <FileText size={10} /> : <Lock size={10} />}
+                {(paper.fullText && paper.fullText.trim().length >= 200) ? "Open Access (Full Paper Text)" : "Paywalled / Account-Restricted (Abstract Only)"}
+              </span>
+            </div>
           </div>
 
           {/* Citation Box */}

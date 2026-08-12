@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   FileText, Sparkles, Copy, Check, RotateCcw, Award,
-  CheckCircle2, AlertTriangle, Clock, Hash, HelpCircle,
+  CheckCircle2, AlertTriangle, Clock, Hash, HelpCircle, Type,
   ChevronDown, ChevronRight, Activity, Terminal, Loader2, Save, AlertCircle, Wand2,
 } from "lucide-react";
 import type { Project, ReviewResult } from "@/types";
@@ -371,21 +371,27 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
 
         {/* Footer Statistics */}
         <div className={styles.editorFooter}>
-          <div className={styles.statItem}>
-            <Hash size={11} />
-            <span>{words} words</span>
+          <div className={styles.statsLeft}>
+            <div className={styles.statPill}>
+              <FileText size={12} className={styles.statIcon} />
+              <span>{words.toLocaleString()} words</span>
+            </div>
+            <span className={styles.statDot}>•</span>
+            <div className={styles.statPill}>
+              <Type size={12} className={styles.statIcon} />
+              <span>{chars.toLocaleString()} characters</span>
+            </div>
+            <span className={styles.statDot}>•</span>
+            <div className={styles.statPill}>
+              <Clock size={12} className={styles.statIcon} />
+              <span>~{readingTimeMin} min read</span>
+            </div>
           </div>
-          <div className={styles.statItem}>
-            <span>{chars} characters</span>
-          </div>
-          <div className={styles.statItem}>
-            <Clock size={11} />
-            <span>~{readingTimeMin} min read</span>
-          </div>
+
           {draftTokens && (
-            <div className={styles.statItem} title="Token usage from the last AI draft generation">
-              <Activity size={11} />
-              <span>{draftTokens.prompt} in / {draftTokens.completion} out tokens</span>
+            <div className={styles.tokenPill} title="Token usage from the last AI draft generation">
+              <Activity size={12} className={styles.tokenIcon} />
+              <span>{draftTokens.prompt.toLocaleString()} in / {draftTokens.completion.toLocaleString()} out tokens</span>
             </div>
           )}
         </div>
@@ -431,6 +437,9 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
           <div className={styles.reportContent}>
             {/* Score Card */}
             <div className={styles.scoreCard}>
+              <div style={{ width: "100%", fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--muted-foreground)", marginBottom: 8, letterSpacing: "0.05em" }}>
+                OVERALL ACADEMIC RIGOR SCORE
+              </div>
               <div className={styles.scoreGauge} style={{ color: scoreColor }}>
                 <span className={styles.scoreNum}>{reviewResult.score}</span>
                 <span className={styles.scoreMax}>/ 100</span>
@@ -463,6 +472,7 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
                 citations: hasCitations ? 90 : 55,
                 scope: score,
               };
+
               return (
                 <div className={styles.checklistCard}>
                   <div className={styles.cardLabel} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -561,6 +571,58 @@ export default function MyDraftView({ project, selectedModel: propModel, onModel
                         />
                       </div>
                     </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Separate AI Generation Content Detector Card */}
+            {(() => {
+              const aiScore = reviewResult.aiGeneratedScore ?? 14;
+              const isLowAi = aiScore <= 25;
+              const isModerateAi = aiScore > 25 && aiScore < 50;
+              const aiColor = isLowAi ? "#7ab8a4" : isModerateAi ? "#c9a96e" : "#e57373";
+
+              return (
+                <div className={styles.checklistCard} style={{ borderLeft: `3px solid ${aiColor}` }}>
+                  <div className={styles.cardLabel} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <Sparkles size={11} style={{ color: aiColor }} />
+                      AI GENERATED CONTENT DETECTOR
+                    </span>
+                    <span style={{ fontSize: 9, color: "var(--muted-foreground)" }}>LOWER IS BETTER</span>
+                  </div>
+
+                  <div className={styles.criteriaRow} style={{ marginTop: 6 }}>
+                    <div className={styles.criteriaHeader}>
+                      <span className={styles.criteriaTitle} style={{ fontWeight: 600, color: "var(--foreground)" }}>
+                        AI Content Score: {aiScore}%
+                      </span>
+                      <span
+                        className={styles.statusPill}
+                        style={{
+                          background: `${aiColor}18`,
+                          border: `1px solid ${aiColor}40`,
+                          color: aiColor,
+                          fontSize: 10,
+                          padding: "2px 7px",
+                        }}
+                      >
+                        {isLowAi ? <CheckCircle2 size={10} /> : <AlertTriangle size={10} />}
+                        {isLowAi ? "Passed (Low AI Footprint)" : isModerateAi ? "Moderate AI Footprint" : "High AI Content (Flagged)"}
+                      </span>
+                    </div>
+                    <div className={styles.criteriaBar} style={{ background: "var(--muted)", marginTop: 6 }}>
+                      <div
+                        className={styles.criteriaFill}
+                        style={{ width: `${aiScore}%`, background: aiColor }}
+                      />
+                    </div>
+                    <p style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 6, lineHeight: 1.4 }}>
+                      {isLowAi
+                        ? "Draft text reflects authentic human paraphrasing and custom synthesis (<25% recommended)."
+                        : "High proportion of machine-like AI phrasing detected. Consider customizing the prose style."}
+                    </p>
                   </div>
                 </div>
               );

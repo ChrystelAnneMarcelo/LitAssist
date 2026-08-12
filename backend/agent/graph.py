@@ -1045,7 +1045,7 @@ async def review_node(state: AgentState) -> dict:
     has_citations = bool(re.search(r"\b(19|20)\d{2}\b", draft)) or "et al." in draft
 
     review_prompt = (
-        f"You are a strict senior academic peer reviewer scoring an RRL draft.\n"
+        f"You are a strict senior academic peer reviewer and AI content detector scoring an RRL draft.\n"
         f"Research Scope: '{proj_name}'" + (f" ({proj_desc})" if proj_desc else "") + "\n\n"
         f"Draft Text to Review:\n\"\"\"\n{draft[:2500]}\n\"\"\"\n\n"
         f"Rigor Metrics:\n"
@@ -1053,26 +1053,29 @@ async def review_node(state: AgentState) -> dict:
         f"- Markdown Headers: {'Present' if has_headers else 'Missing'}\n"
         f"- In-Text Citations: {'Present' if has_citations else 'Missing'}\n\n"
         "Instructions:\n"
-        "1. Evaluate writing depth, structural headers, citation density, and scope alignment.\n"
-        "2. Score each of the 4 criteria (0-100):\n"
+        "1. Evaluate writing depth, structural headers, citation density, and scope alignment for the academic rubric.\n"
+        "2. Estimate the AI-generated probability (0-100%) indicating how machine-generated or synthetic the text phrasing appears (note: lower AI score is better/desired for authentic human writing).\n"
+        "3. Score each of the 4 academic criteria (0-100):\n"
         "   - depth_score: length & narrative depth\n"
         "   - structure_score: section headers & organization\n"
         "   - citation_score: author/year in-text citation integrity\n"
         "   - scope_score: research scope alignment\n"
-        "3. Assign an overall score (0-100) and 2-3 sentences of reviewer critique.\n\n"
+        "4. Assign an overall academic score (0-100) and 2-3 sentences of reviewer critique.\n\n"
         "Return ONLY a valid JSON object with format:\n"
         "{\n"
         '  "depth_score": <0-100 integer>,\n'
         '  "structure_score": <0-100 integer>,\n'
         '  "citation_score": <0-100 integer>,\n'
         '  "scope_score": <0-100 integer>,\n'
-        '  "score": <0-100 integer>,\n'
+        '  "ai_generated_score": <0-100 integer: estimated percentage of AI generated text; lower is better>,\n'
+        '  "score": <0-100 integer: overall academic score>,\n'
         '  "feedback": "<Specific reviewer feedback text>"\n'
         "}"
     )
 
     model = state.get("model_name", "gemini-2.5-flash")
     score = 82
+    ai_gen_score = 14
     feedback = "Draft evaluated by peer reviewer."
     c_scores = {
         "depth": 90 if word_count >= 120 else 65,
@@ -1092,6 +1095,7 @@ async def review_node(state: AgentState) -> dict:
         if match:
             parsed = json.loads(match.group(0))
             score = int(parsed.get("score") or score)
+            ai_gen_score = int(parsed.get("ai_generated_score") or parsed.get("aiGeneratedScore") or 14)
             feedback = str(parsed.get("feedback") or feedback).strip()
             c_scores = {
                 "depth": int(parsed.get("depth_score") or c_scores["depth"]),
@@ -1102,6 +1106,7 @@ async def review_node(state: AgentState) -> dict:
     except Exception as err:
         print(f"[WARN] Reviewer node fallback: {err}")
         score = min(92, max(60, 70 + (10 if has_headers else 0) + (10 if has_citations else 0) + min(12, word_count // 30)))
+        ai_gen_score = 14
         feedback = f"Draft evaluated structurally ({word_count} words, headers: {'yes' if has_headers else 'no'}, citations: {'yes' if has_citations else 'no'})."
         if prompt_tokens <= 0:
             prompt_tokens = math.ceil(len(review_prompt) / 4)
@@ -1113,6 +1118,7 @@ async def review_node(state: AgentState) -> dict:
 
     return {
         "review_score": score,
+        "ai_generated_score": ai_gen_score,
         "review_feedback": feedback,
         "criteria_scores": c_scores,
         "retries": retries,

@@ -465,12 +465,6 @@ export default function ChatView({
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => setShowRubricModal(true)}
-              className={styles.rubricPillBtnLarge}
-            >
-              <Award size={12} /> View Scoring Rubric Criteria
-            </button>
           </div>
         )}
 

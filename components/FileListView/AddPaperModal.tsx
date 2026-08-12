@@ -122,10 +122,11 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
       if (data.doi) setDoi(data.doi);
       if (data.url) setPaperUrl(data.url);
       if (data.pdf_url) setPdfUrl(data.pdf_url);
+      if (data.full_text) setFullText(data.full_text);
       if (data.verification) setVerification(data.verification);
       setSource("doi");
 
-      const msg = `Successfully resolved "${data.title.slice(0, 45)}…" online!${data.pdf_url ? " (Direct Open-Access PDF link found)" : ""}`;
+      const msg = `Successfully resolved "${data.title.slice(0, 45)}…" online!${data.full_text ? " (Full paper text extracted)" : data.pdf_url ? " (Direct Open-Access link found)" : ""}`;
       setSearchSuccess(msg);
     } catch (err: any) {
       console.warn("DOI online resolution error, attempting direct Crossref fallback:", err);
