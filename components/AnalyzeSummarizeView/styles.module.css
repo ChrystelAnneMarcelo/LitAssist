@@ -439,3 +439,72 @@
   color: var(--muted-foreground);
   line-height: 1.6;
 }
+
+/* Observability Trace Logs */
+.traceCard {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.traceToggle {
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.traceToggle:hover {
+  background: var(--muted);
+}
+
+.traceToggleTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.traceMetaGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.traceMetaBadge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+}
+
+.traceLogs {
+  padding: 12px 14px;
+  background: var(--muted);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.traceItem {
+  color: var(--foreground);
+  line-height: 1.5;
+  word-break: break-word;
+  padding: 5px 8px;
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--primary);
+}

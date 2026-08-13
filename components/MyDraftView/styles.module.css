@@ -220,21 +220,70 @@
 }
 
 .editorFooter {
-  padding: 8px 18px;
+  min-height: 36px;
+  padding: 0 16px;
   border-top: 1px solid var(--border);
-  background: var(--muted);
+  background: var(--card);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   font-size: 11px;
   color: var(--muted-foreground);
   font-family: var(--font-mono);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.statItem {
+.editorFooter::-webkit-scrollbar {
+  display: none;
+}
+
+.statsLeft {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.statPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.statDot {
+  color: var(--border);
+  font-size: 10px;
+  user-select: none;
+}
+
+.statIcon {
+  color: var(--primary);
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.tokenPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tokenIcon {
+  color: var(--primary);
+  opacity: 0.85;
+  flex-shrink: 0;
 }
 
 /* Right: Report Pane */

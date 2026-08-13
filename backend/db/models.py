@@ -53,6 +53,9 @@ class PaperAnalysis(BaseModel):
     overallRrlRationale: Optional[str] = None
     themes: list[str] = Field(default_factory=list)
     analyzedAt: str = Field(default_factory=_now_iso)
+    trace: Optional[list[str]] = Field(default_factory=list)
+    latencyMs: Optional[int] = 0
+    modelName: Optional[str] = "gemini-2.5-flash"
 
 
 # ─── Paper (own collection now; projectId is the foreign key) ──
@@ -112,6 +115,7 @@ class CriteriaScores(BaseModel):
 
 class ReviewResult(BaseModel):
     score: int
+    aiGeneratedScore: Optional[int] = 12
     feedback: str
     criteriaScores: Optional[CriteriaScores] = None
     trace: list[str] = Field(default_factory=list)
