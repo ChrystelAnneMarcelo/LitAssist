@@ -1,14 +1,22 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, X, FileUp, CheckCircle, AlertCircle, Loader2, Search, Sparkles } from "lucide-react";
-import type { Paper } from "@/types";
+import { Upload, X, FileUp, CheckCircle, AlertCircle, Loader2, Search, Sparkles, ShieldCheck, ShieldAlert, ShieldQuestion } from "lucide-react";
+import type { Paper, PaperVerification, PaperContentCheck } from "@/types";
 import styles from "./styles.module.css";
 
 interface AddPaperModalProps {
   onClose: () => void;
   onAdd: (paper: Paper) => void;
 }
+
+const PUBLICATION_TYPES = [
+  { value: "published", label: "Published" },
+  { value: "preprint", label: "Preprint" },
+  { value: "thesis", label: "Thesis or Dissertation" },
+  { value: "working_paper", label: "Working Paper" },
+  { value: "unpublished", label: "Unpublished" },
+] as const;
 
 export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
   const [activeTab, setActiveTab] = useState<"search" | "upload">("search");
@@ -27,6 +35,19 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
   const [doi, setDoi] = useState("");
   const [paperUrl, setPaperUrl] = useState("");
   const [pdfUrl, setPdfUrl] = useState("");
+
+  // Source verification state — set once, at fetch/upload time only
+  const [source, setSource] = useState<"doi" | "pdf_upload" | "manual">("manual");
+  const [publicationType, setPublicationType] = useState<
+    "published" | "preprint" | "thesis" | "working_paper" | "unpublished"
+  >("published");
+  const [verification, setVerification] = useState<PaperVerification | null>(null);
+  const [contentCheck, setContentCheck] = useState<PaperContentCheck | null>(null);
+  // Holds a low-confidence match's full data when auto-fill is withheld —
+  // lets the user review and explicitly opt in, instead of either silently
+  // trusting it (the original bug) or discarding it entirely (dead end,
+  // no path forward if they don't already know the exact title/DOI).
+  const [candidateResult, setCandidateResult] = useState<any | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -52,6 +73,8 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
     setSearchError(null);
     setSearchSuccess(null);
     setNoAbstractWarning(false);
+    setVerification(null);
+    setCandidateResult(null);
 
     try {
       const res = await fetch("/api/resolve-doi", {
@@ -64,6 +87,22 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
 
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+
+      // Guard against the exact bug we found: a fuzzy-search fallback can
+      // return a REAL but UNRELATED paper as its closest guess. If the
+      // backend says it doesn't confidently match what was searched for,
+      // don't auto-fill the form with someone else's real metadata —
+      // require the user to explicitly decide what to do next instead.
+      const gotDifferentTitle = data.title && data.title.trim().toLowerCase() !== query.trim().toLowerCase();
+      const matchFailed = gotDifferentTitle && data.verification && data.verification.matched === false;
+
+      if (matchFailed) {
+        // Don't auto-fill — but don't throw the data away either. Surface
+        // it as a suggestion the user can consciously accept or dismiss.
+        setCandidateResult(data);
+        setSearchSuccess(null);
+        return;
+      }
 
       if (data.title) setTitle(data.title);
       if (data.authors) setAuthors(data.authors);
@@ -83,6 +122,8 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
       if (data.doi) setDoi(data.doi);
       if (data.url) setPaperUrl(data.url);
       if (data.pdf_url) setPdfUrl(data.pdf_url);
+      if (data.verification) setVerification(data.verification);
+      setSource("doi");
       if (data.full_text) setFullText(data.full_text);
 
       const msg = `Successfully resolved "${data.title.slice(0, 45)}…" online!${data.full_text ? " (Full paper text extracted)" : data.pdf_url ? " (Direct Open-Access link found)" : ""}`;
@@ -104,6 +145,46 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
 
         if (item && item.title) {
           const extTitle = Array.isArray(item.title) ? item.title[0] : item.title;
+          const isExactDoiLookup = Boolean(doiMatch);
+          const gotDifferentTitle = extTitle && extTitle.trim().toLowerCase() !== query.trim().toLowerCase();
+
+          // Same guard as the primary path above: this fallback's `else`
+          // branch (no doiMatch) is a fuzzy Crossref text search, which
+          // returns its closest guess regardless of how unrelated it is.
+          // No real similarity check is available client-side here, so
+          // rather than risk a false "matched: true" claim, treat any
+          // fuzzy-search result with a different title as unconfirmed —
+          // same as the primary path's protection.
+          if (!isExactDoiLookup && gotDifferentTitle) {
+            const authorsStr =
+              item.author && item.author.length > 0
+                ? item.author.length > 1
+                  ? `${item.author[0].family || item.author[0].name || ""}, et al.`
+                  : item.author[0].family || item.author[0].name || ""
+                : "";
+            const pubDate = item["published-print"] || item["published-online"] || item.created || item.issued;
+            const yearStr = pubDate?.["date-parts"]?.[0]?.[0]?.toString() || "";
+            const journalStr = item["container-title"]?.[0] || "";
+            const abstractStr = item.abstract
+              ? item.abstract.replace(/<[^>]*>?/gm, "").replace(/^abstract[—:\s\.\-]*/i, "").trim()
+              : "";
+
+            // No real similarity score available client-side for this
+            // fallback path — surface it as an unconfirmed candidate
+            // rather than fabricate a percentage we can't actually back up.
+            setCandidateResult({
+              title: extTitle,
+              authors: authorsStr,
+              year: yearStr,
+              journal: journalStr,
+              abstract: abstractStr,
+              doi: item.DOI || undefined,
+              url: item.DOI ? `https://doi.org/${item.DOI}` : undefined,
+              verification: { matched: false, source: null, url: null, similarity: 0 },
+            });
+            return;
+          }
+
           setTitle(extTitle || query);
           if (item.author && item.author.length > 0) {
             const first = item.author[0];
@@ -123,6 +204,15 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
             setFullText("");
             setNoAbstractWarning(true);
           }
+          // Only reachable now via an exact DOI lookup (isExactDoiLookup),
+          // so a confident match claim is actually justified here.
+          setVerification({
+            matched: true,
+            source: "Crossref",
+            url: item.DOI ? `https://doi.org/${item.DOI}` : null,
+            similarity: 1.0,
+          });
+          setSource("doi");
           setSearchSuccess(`Fetched metadata for "${extTitle.slice(0, 45)}…"`);
         } else {
           throw new Error("No metadata returned.");
@@ -135,12 +225,45 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
     }
   };
 
+  // Explicit opt-in: the user reviewed a low-confidence candidate and
+  // decided to use it anyway. Applies the same fields the primary/fallback
+  // paths would have auto-filled, now as a deliberate choice instead of a
+  // silent default.
+  const applyCandidateResult = () => {
+    if (!candidateResult) return;
+    const data = candidateResult;
+    if (data.title) setTitle(data.title);
+    if (data.authors) setAuthors(data.authors);
+    if (data.year) setYear(data.year);
+    if (data.journal) setJournal(data.journal);
+    if (data.abstract) {
+      setAbstract(data.abstract);
+      setNoAbstractWarning(false);
+    } else {
+      setNoAbstractWarning(true);
+    }
+    if (data.methodology) setMethodology(data.methodology);
+    if (data.key_findings && Array.isArray(data.key_findings) && data.key_findings.length > 0) {
+      setKeyFindings(data.key_findings);
+    }
+    if (data.tags && Array.isArray(data.tags)) setTags(data.tags.join(", "));
+    if (data.doi) setDoi(data.doi);
+    if (data.url) setPaperUrl(data.url);
+    if (data.pdf_url) setPdfUrl(data.pdf_url);
+    setVerification(data.verification || null);
+    setSource("doi");
+    setSearchSuccess(`Applied "${data.title.slice(0, 45)}…" — please double-check the fields below.`);
+    setCandidateResult(null);
+  };
+
   // ─── File Upload Handler (PDF + TXT + MD) ──────────────────────
   const processFile = async (file: File) => {
     setUploadError(null);
     setUploadSuccess(null);
     setFileName(file.name);
     setIsParsing(true);
+    setVerification(null);
+    setContentCheck(null);
 
     const isPdf = file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf";
 
@@ -164,13 +287,15 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
         if (data.authors) setAuthors(data.authors);
         if (data.abstract) setAbstract(data.abstract);
         if (data.full_text) setFullText(data.full_text);
-        if (data.full_text) setFullText(data.full_text);
         if (data.year) setYear(data.year);
         if (data.journal) setJournal(data.journal);
         if (data.methodology) setMethodology(data.methodology);
         if (data.key_findings && Array.isArray(data.key_findings) && data.key_findings.length > 0) {
           setKeyFindings(data.key_findings);
         }
+        if (data.content_check) setContentCheck(data.content_check);
+        if (data.verification) setVerification(data.verification);
+        setSource("pdf_upload");
 
         // Auto-generate tags based on content
         const text = `${data.title} ${data.abstract}`;
@@ -263,6 +388,13 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
       doi: doi || undefined,
       url: paperUrl || undefined,
       pdfUrl: pdfUrl || undefined,
+      source,
+      publicationType,
+      // Verification only means something for Published/Preprint — thesis/
+      // working-paper/unpublished are self-reported by design (see the
+      // badge logic above), so don't attach an index-match result to them.
+      verification: publicationType === "published" || publicationType === "preprint" ? verification : null,
+      contentCheck: contentCheck,
     };
     onAdd(paper);
     onClose();
@@ -351,6 +483,74 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
                   Fetch
                 </button>
               </div>
+
+              {/* Low-confidence match — shown as an explicit opt-in suggestion,
+                  not auto-applied. This is the fix for the bug where a
+                  fuzzy search silently trusted an unrelated real paper. */}
+              {candidateResult && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    fontSize: 11,
+                    fontFamily: "var(--font-mono)",
+                    background: "var(--input-background)",
+                    border: "1px solid var(--border)",
+                    padding: "10px 12px",
+                    borderRadius: "var(--radius)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 6, color: "var(--muted-foreground)" }}>
+                    <ShieldQuestion size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <span>
+                      Closest result found — not a confident match
+                      {candidateResult.verification?.similarity > 0 && (
+                        <> ({Math.round(candidateResult.verification.similarity * 100)}% similar)</>
+                      )}
+                      . Review before using it.
+                    </span>
+                  </div>
+                  <div style={{ paddingLeft: 19 }}>
+                    <div style={{ color: "var(--foreground)", fontWeight: 500 }}>{candidateResult.title}</div>
+                    <div style={{ color: "var(--muted-foreground)", marginTop: 2 }}>
+                      {candidateResult.authors || "Unknown authors"}
+                      {candidateResult.year && ` · ${candidateResult.year}`}
+                      {candidateResult.journal && ` · ${candidateResult.journal}`}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, paddingLeft: 19 }}>
+                    <button
+                      onClick={applyCandidateResult}
+                      style={{
+                        fontSize: 10.5,
+                        padding: "4px 10px",
+                        borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--primary)",
+                        color: "var(--primary)",
+                        background: "transparent",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Use This Result
+                    </button>
+                    <button
+                      onClick={() => setCandidateResult(null)}
+                      style={{
+                        fontSize: 10.5,
+                        padding: "4px 10px",
+                        borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--border)",
+                        color: "var(--muted-foreground)",
+                        background: "transparent",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {searchSuccess && !noAbstractWarning && (
                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--primary)", fontFamily: "var(--font-mono)", background: "rgba(201,169,110,0.1)", padding: "6px 10px", borderRadius: "var(--radius)" }}>
@@ -482,6 +682,76 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
                 />
               </div>
             </div>
+
+            <div>
+              <label className={styles.fieldLabel}>PUBLICATION TYPE</label>
+              <select
+                className={styles.input}
+                value={publicationType}
+                onChange={(e) => setPublicationType(e.target.value as typeof publicationType)}
+              >
+                {PUBLICATION_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+              <p style={{ fontSize: 10.5, color: "var(--muted-foreground)", marginTop: 4, lineHeight: 1.4 }}>
+                {publicationType === "published" || publicationType === "preprint"
+                  ? "Checked against academic indexes (Crossref, arXiv, Semantic Scholar, PubMed, OpenAlex)."
+                  : "Self-reported — not checked against indexes, since this type of work usually isn't indexed."}
+              </p>
+            </div>
+
+            {/* Source verification badge — appears once a fetch/upload has actually run */}
+            {(verification || contentCheck) && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  fontSize: 11,
+                  fontFamily: "var(--font-mono)",
+                  padding: "8px 10px",
+                  borderRadius: "var(--radius)",
+                  border: "1px solid var(--border)",
+                  background: "var(--input-background)",
+                }}
+              >
+                {contentCheck && (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 6, color: contentCheck.passed ? "var(--primary)" : "#e67e22" }}>
+                    {contentCheck.passed ? <ShieldCheck size={13} style={{ flexShrink: 0, marginTop: 1 }} /> : <ShieldAlert size={13} style={{ flexShrink: 0, marginTop: 1 }} />}
+                    <span>{contentCheck.passed ? "PDF content looks like a real document." : contentCheck.reason}</span>
+                  </div>
+                )}
+                {verification && (publicationType === "published" || publicationType === "preprint") && (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 6, color: verification.matched ? "var(--primary)" : "var(--muted-foreground)" }}>
+                    {verification.matched ? <ShieldCheck size={13} style={{ flexShrink: 0, marginTop: 1 }} /> : <ShieldQuestion size={13} style={{ flexShrink: 0, marginTop: 1 }} />}
+                    {verification.matched ? (
+                      <span>
+                        Found in {verification.source}
+                        {verification.url && (
+                          <> — <a href={verification.url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>view record</a></>
+                        )}
+                      </span>
+                    ) : (
+                      <span>
+                        Not independently indexed
+                        {verification.similarity > 0 ? (
+                          <> — closest result was only {Math.round(verification.similarity * 100)}% similar, below the confidence threshold.</>
+                        ) : (
+                          <> (no confident match across Crossref, arXiv, Semantic Scholar, PubMed, OpenAlex).</>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {verification && (publicationType === "thesis" || publicationType === "working_paper" || publicationType === "unpublished") && (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 6, color: "var(--muted-foreground)" }}>
+                    <ShieldQuestion size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <span>Self-reported, not independently indexed — expected for this publication type.</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div>
               <label className={styles.fieldLabel}>JOURNAL / PUBLISHER</label>

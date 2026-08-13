@@ -1,10 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { X, BookOpen, Target, FlaskConical, Copy, Check, Calendar, User, Tag, BookMarked, ExternalLink, FileText, Award, Lock } from "lucide-react";
+import { X, BookOpen, Target, FlaskConical, Copy, Check, Calendar, User, Tag, BookMarked, ExternalLink, FileText, Award, Lock, ShieldCheck, ShieldAlert, ShieldQuestion } from "lucide-react";
 import type { Paper, Project } from "@/types";
 import ScoringRubricModal from "@/components/ScoringRubricModal";
 import styles from "./styles.module.css";
+
+const SOURCE_LABELS: Record<string, string> = {
+  doi: "DOI Lookup",
+  pdf_upload: "Uploaded PDF",
+  manual: "Manually Entered",
+};
+
+const PUBLICATION_TYPE_LABELS: Record<string, string> = {
+  published: "Published",
+  preprint: "Preprint",
+  thesis: "Thesis or Dissertation",
+  working_paper: "Working Paper",
+  unpublished: "Unpublished",
+};
 
 interface PaperDetailModalProps {
   paper: Paper;
@@ -93,6 +107,80 @@ export default function PaperDetailModal({ paper, onClose, project }: PaperDetai
               {paper.journal && <span>Journal: {paper.journal}</span>}
             </div>
 
+            {/* Tags */}
+            {paper.tags.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                {paper.tags.map((t) => (
+                  <span
+                    key={t}
+                    style={{
+                      fontSize: 10,
+                      fontFamily: "var(--font-mono)",
+                      padding: "3px 8px",
+                      borderRadius: 9999,
+                      background: "rgba(201,169,110,0.08)",
+                      color: "var(--primary)",
+                      border: "1px solid rgba(201,169,110,0.2)",
+                    }}
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Source & Verification */}
+            {(paper.source || paper.publicationType) && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 10, fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--muted-foreground)" }}>
+                {paper.source && (
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <ShieldCheck size={12} style={{ color: "var(--primary)" }} />
+                    Source: {SOURCE_LABELS[paper.source] || paper.source}
+                  </span>
+                )}
+                {paper.publicationType && (
+                  <span>{PUBLICATION_TYPE_LABELS[paper.publicationType] || paper.publicationType}</span>
+                )}
+              </div>
+            )}
+            {paper.contentCheck && !paper.contentCheck.passed && (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 8, fontSize: 11, fontFamily: "var(--font-mono)", color: "#e67e22", background: "rgba(230,126,34,0.08)", border: "1px solid rgba(230,126,34,0.25)", padding: "6px 10px", borderRadius: "var(--radius)" }}>
+                <ShieldAlert size={12} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>{paper.contentCheck.reason}</span>
+              </div>
+            )}
+            {(paper.publicationType === "published" || paper.publicationType === "preprint" || !paper.publicationType) && paper.verification && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 6,
+                  marginTop: 8,
+                  fontSize: 11,
+                  fontFamily: "var(--font-mono)",
+                  color: paper.verification.matched ? "var(--primary)" : "var(--muted-foreground)",
+                }}
+              >
+                {paper.verification.matched ? <ShieldCheck size={12} style={{ flexShrink: 0, marginTop: 1 }} /> : <ShieldQuestion size={12} style={{ flexShrink: 0, marginTop: 1 }} />}
+                {paper.verification.matched ? (
+                  <span>
+                    Found in {paper.verification.source}
+                    {paper.verification.url && (
+                      <> — <a href={paper.verification.url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)" }}>view record</a></>
+                    )}
+                  </span>
+                ) : (
+                  <span>
+                    Not independently indexed
+                    {paper.verification.similarity > 0 ? (
+                      <> — closest result was only {Math.round(paper.verification.similarity * 100)}% similar, below the confidence threshold.</>
+                    ) : (
+                      <>.</>
+                    )}
+                  </span>
+                )}
+              </div>
+            )}
             {/* Tags & Access Status Badge */}
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginTop: 10 }}>
               {paper.tags.map((t) => (
