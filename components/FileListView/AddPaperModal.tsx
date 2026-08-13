@@ -125,6 +125,7 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
       if (data.full_text) setFullText(data.full_text);
       if (data.verification) setVerification(data.verification);
       setSource("doi");
+      if (data.full_text) setFullText(data.full_text);
 
       const msg = `Successfully resolved "${data.title.slice(0, 45)}…" online!${data.full_text ? " (Full paper text extracted)" : data.pdf_url ? " (Direct Open-Access link found)" : ""}`;
       setSearchSuccess(msg);
