@@ -122,6 +122,7 @@ export default function AddPaperModal({ onClose, onAdd }: AddPaperModalProps) {
       if (data.doi) setDoi(data.doi);
       if (data.url) setPaperUrl(data.url);
       if (data.pdf_url) setPdfUrl(data.pdf_url);
+      if (data.full_text) setFullText(data.full_text);
       if (data.verification) setVerification(data.verification);
       setSource("doi");
       if (data.full_text) setFullText(data.full_text);

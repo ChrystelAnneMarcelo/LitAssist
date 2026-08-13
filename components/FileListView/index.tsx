@@ -12,6 +12,7 @@ import CompareModal from "./CompareModal";
 import PaperDetailModal from "./PaperDetailModal";
 import AnalyzeSummarizeView from "@/components/AnalyzeSummarizeView";
 import MyDraftView from "@/components/MyDraftView";
+import TutorialModal from "@/components/TutorialModal";
 import styles from "./styles.module.css";
 
 interface FileListViewProps {
@@ -56,6 +57,7 @@ export default function FileListView({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [activeDetailPaper, setActiveDetailPaper] = useState<Paper | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [showFilterBar, setShowFilterBar] = useState(false);
@@ -582,6 +584,17 @@ export default function FileListView({
           </div>
         </div>
       )}
+
+      <button
+        className={styles.tutorialBubble}
+        onClick={() => setShowTutorial(true)}
+        title="Open tutorial"
+        aria-label="Open tutorial"
+      >
+        ?
+      </button>
+
+      {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
     </div>
   );
 }

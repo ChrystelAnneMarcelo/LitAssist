@@ -604,6 +604,20 @@ async def resolve_doi(body: DoiInput):
         except Exception as pdf_err:
             print(f"[INFO] Auto PDF download skipped or restricted for {pdf_url}: {pdf_err}")
 
+    # Attempt auto-fetching full PDF text if direct Open Access PDF URL is available
+    full_text = ""
+    if pdf_url:
+        try:
+            async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+                pdf_res = await client.get(pdf_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"})
+                if pdf_res.status_code == 200 and len(pdf_res.content) > 1000 and pdf_res.content.startswith(b"%PDF"):
+                    import io, pypdf
+                    reader = pypdf.PdfReader(io.BytesIO(pdf_res.content))
+                    extracted = [page.extract_text() or "" for page in reader.pages[:15]]
+                    full_text = "\n\n".join(extracted).strip()
+        except Exception as pdf_err:
+            print(f"[INFO] Auto PDF download skipped or restricted for {pdf_url}: {pdf_err}")
+
     return {
         "title": title or query,
         "authors": authors or "Unknown Author",

@@ -848,6 +848,41 @@ def _extract_llm_text(raw_val) -> str:
     return str(raw_val)
 
 
+def _extract_usage_tokens(result_obj, prompt_text: str, completion_text: str) -> tuple[int, int]:
+    """
+    Prefer provider-reported usage metadata when available; otherwise fallback
+    to a stable rough estimate so telemetry never stays at 0/0 for real calls.
+    """
+    prompt_tokens = 0
+    completion_tokens = 0
+
+    usage = getattr(result_obj, "usage_metadata", None)
+    if not usage:
+        response_meta = getattr(result_obj, "response_metadata", None) or {}
+        usage = response_meta.get("usage_metadata") or response_meta.get("token_usage")
+
+    if isinstance(usage, dict):
+        prompt_tokens = int(
+            usage.get("input_tokens")
+            or usage.get("prompt_tokens")
+            or usage.get("prompt_token_count")
+            or 0
+        )
+        completion_tokens = int(
+            usage.get("output_tokens")
+            or usage.get("completion_tokens")
+            or usage.get("candidates_token_count")
+            or 0
+        )
+
+    if prompt_tokens <= 0:
+        prompt_tokens = math.ceil(len(prompt_text) / 4)
+    if completion_tokens <= 0:
+        completion_tokens = math.ceil(len(completion_text) / 4)
+
+    return prompt_tokens, completion_tokens
+
+
 async def review_node(state: AgentState) -> dict:
     """
     Real LLM-as-a-Judge Node: Evaluates academic rigor, citations, and structural relevance.
@@ -932,6 +967,7 @@ async def review_node(state: AgentState) -> dict:
                 llm = get_llm(m_id)
                 res = await llm.ainvoke(prompt)
                 raw = _extract_llm_text(res.content)
+                prompt_tok, completion_tok = _extract_usage_tokens(res, prompt, raw)
                 match = re.search(r"\{[\s\S]*\}", raw)
                 if match:
                     parsed = json.loads(match.group(0))
@@ -952,6 +988,8 @@ async def review_node(state: AgentState) -> dict:
                         "overall_rrl_rationale": str(parsed.get("overall_rrl_rationale") or "Strong analytical contribution for the literature review chapter.").strip(),
                     }
                     used_model = m_id
+                    state["prompt_tokens"] = state.get("prompt_tokens", 0) + prompt_tok
+                    state["completion_tokens"] = state.get("completion_tokens", 0) + completion_tok
                     break
             except Exception as m_err:
                 print(f"[WARN] ReviewerNode paper mode failover from {m_id}: {m_err}")
@@ -980,6 +1018,8 @@ async def review_node(state: AgentState) -> dict:
             "paper_analysis": paper_result,
             "review_score": paper_result["relevance_score"],
             "review_feedback": paper_result["overall_rrl_rationale"],
+            "prompt_tokens": state.get("prompt_tokens", 0),
+            "completion_tokens": state.get("completion_tokens", 0),
             "trace": [f"[ReviewerNode +{elapsed}ms] Paper appraisal complete via {used_model} (Relevance: {paper_result['relevance_score']}%, Topic: {paper_result['topic_relevance_score']}%, Rigor: {paper_result['methodological_rigor_score']}%)."],
         }
 
@@ -1043,11 +1083,14 @@ async def review_node(state: AgentState) -> dict:
         "citations": 90 if has_citations else 55,
         "scope": 85,
     }
+    prompt_tokens = 0
+    completion_tokens = 0
 
     try:
         llm = get_llm(model)
         result = await llm.ainvoke(review_prompt)
         raw = _extract_llm_text(result.content)
+        prompt_tokens, completion_tokens = _extract_usage_tokens(result, review_prompt, raw)
         match = re.search(r"\{[\s\S]*\}", raw)
         if match:
             parsed = json.loads(match.group(0))
@@ -1065,6 +1108,10 @@ async def review_node(state: AgentState) -> dict:
         score = min(92, max(60, 70 + (10 if has_headers else 0) + (10 if has_citations else 0) + min(12, word_count // 30)))
         ai_gen_score = 14
         feedback = f"Draft evaluated structurally ({word_count} words, headers: {'yes' if has_headers else 'no'}, citations: {'yes' if has_citations else 'no'})."
+        if prompt_tokens <= 0:
+            prompt_tokens = math.ceil(len(review_prompt) / 4)
+        if completion_tokens <= 0:
+            completion_tokens = math.ceil(len(feedback) / 4)
 
     elapsed = int((time.time() - start) * 1000)
     retries = state.get("retries", 0) + (0 if score >= 80 else 1)
@@ -1075,7 +1122,9 @@ async def review_node(state: AgentState) -> dict:
         "review_feedback": feedback,
         "criteria_scores": c_scores,
         "retries": retries,
-        "trace": [f"[ReviewerNode +{elapsed}ms] Peer review complete via {model} (Overall Academic Score: {score}/100 — AI Content Detected: {ai_gen_score}% [Lower is better] — Depth: {c_scores['depth']}%, Structure: {c_scores['structure']}%, Citations: {c_scores['citations']}%, Scope: {c_scores['scope']}%)."],
+        "prompt_tokens": state.get("prompt_tokens", 0) + prompt_tokens,
+        "completion_tokens": state.get("completion_tokens", 0) + completion_tokens,
+        "trace": [f"[ReviewerNode +{elapsed}ms] Peer review complete via {model} (Score: {score}/100 — Depth: {c_scores['depth']}%, Structure: {c_scores['structure']}%, Citations: {c_scores['citations']}%, Scope: {c_scores['scope']}%)."],
     }
 
 

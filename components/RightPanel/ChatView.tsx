@@ -506,7 +506,7 @@ export default function ChatView({
                       )}
                       {msg.tokens && (
                         <span style={{ fontSize: 10, color: "var(--muted-foreground)", fontFamily: "var(--font-mono)" }}>
-                          {msg.tokens.total} tokens
+                          {msg.tokens.prompt} in / {msg.tokens.completion} out tokens
                         </span>
                       )}
                       {msg.retries != null && msg.retries > 0 && (
