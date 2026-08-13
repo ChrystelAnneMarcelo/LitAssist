@@ -333,10 +333,113 @@ async def openalex_search_tool(query: str) -> str:
 
 
 # ─── Node 0: Router (Intent Classifier / Orchestrator) ──────
+# ─── Guardrail patterns: scope check before intent classification.
+# \b-anchored word-boundary regexes (plain substring checks caused false
+# matches earlier, e.g. "rate" inside "separate").
+OUT_OF_SCOPE_PATTERNS = {
+    "own_work": [
+        # Only action/complaint phrasing (fix/debug/error/not working) —
+        # bare nouns like "my model" were too broad, they also match
+        # legit "how does my accuracy compare to these papers" questions.
+        r"\bfix (my|this)\b", r"\bdebug\b",
+        r"\btraceback\b", r"\bstack trace\b", r"\bsyntax error\b",
+        r"\bruntime error\b", r"\bcompile(r)? error\b",
+        r"\bwhy (is|does|isn'?t|doesn'?t) my\b", r"\bhow do i fix\b",
+        r"\bhow to fix\b", r"\bnot working\b", r"\bwon'?t run\b",
+    ],
+    "app_navigation": [
+        r"\bhow (do i|to) (add|upload|remove|delete) (a |the )?paper\b",
+        r"\bhow do i (create|delete|start) (a |the )?(new )?project\b",
+        r"\bhow do i use (this|the) app\b",
+        r"\bhow does this app work\b",
+        r"\bwhat does this (button|feature|tab|icon|dropdown) do\b",
+        r"\bwhere is the\b", r"\bwhat can you do\b",
+        r"\bhow do i navigate\b", r"\bhow do i switch models?\b",
+    ],
+    "chitchat": [
+        r"\btell me a joke\b", r"\bthe weather\b", r"\bsports? scores?\b",
+        r"\bhow are you\b", r"\bwhat'?s up\b", r"\bplay a game\b",
+        r"\bact as\b", r"\bpretend (you|to) are\b",
+        r"\bignore (previous|prior|all) instructions\b",
+    ],
+}
+
+OUT_OF_SCOPE_MESSAGES = {
+    "own_work": (
+        "I'm built to help you review and synthesize what the *literature* says — "
+        "not to debug your code, troubleshoot your model, or evaluate your own results. "
+        "Try asking what related papers report on this topic instead."
+    ),
+    "app_navigation": (
+        "I'm focused on literature-review content, not how to use LitAssist itself. "
+        "Check the app's tutorial/help section for that — I'll stick to your papers and research questions."
+    ),
+    "chitchat": (
+        "I'm scoped to academic literature review — summarizing papers, comparing findings, "
+        "and drafting or reviewing your RRL. Ask me something along those lines!"
+    ),
+}
+
+# Short greetings/acknowledgments pass straight through untouched — the
+# guardrail shouldn't fire on "hi" or "thanks".
+GREETING_ONLY_PATTERN = re.compile(
+    r"^(hi|hello|hey|thanks|thank you|ok|okay|sup|yo|wassup|what'?s up|"
+    r"good (morning|afternoon|evening))[\s!.,]*$",
+    re.I,
+)
+
+
+async def _llm_scope_check(question: str) -> tuple[bool, int, int]:
+    """
+    Tier-2 guardrail: LLM classification for messages that clear tier-1
+    but land in 'general' intent (e.g. "how do I cook a steak" — no
+    matching keyword). Uses gemini-2.5-flash (flash-lite 404'd on this
+    key), thinking_budget=0 + max_output_tokens=10 to keep cost minimal.
+    Fails OPEN on any error — quota/network issues never block a real
+    user, tier-1 patterns remain the zero-cost baseline regardless.
+    """
+    api_key = os.getenv("API_KEY") or os.getenv("GEMINI_API_KEY", "")
+    if not api_key:
+        return True, 0, 0  # no key configured — fail open, don't crash the request
+
+    prompt = (
+        "Classify the question as exactly one word: RESEARCH or OFF_TOPIC.\n"
+        "RESEARCH = about academic literature, papers, research topics, or writing a literature review.\n"
+        "OFF_TOPIC = anything else (cooking, sports, small talk, unrelated topics).\n"
+        f'Question: "{question}"\n'
+        "Answer (one word only):"
+    )
+    try:
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            google_api_key=api_key,
+            temperature=0,
+            max_output_tokens=10,
+            thinking_budget=0,
+        )
+        res = await llm.ainvoke(prompt)
+        raw = _extract_llm_text(res.content).strip().upper()
+        prompt_tokens = math.ceil(len(prompt) / 4)
+        completion_tokens = math.ceil(len(raw) / 4)
+        is_research = "OFF_TOPIC" not in raw  # default to allow unless explicitly flagged
+        return is_research, prompt_tokens, completion_tokens
+    except Exception as e:
+        print(f"[WARN] LLM scope check failed, failing open: {str(e)[:120]}")
+        return True, 0, 0
+
+
+def _kw_match(keywords: list[str], text: str) -> bool:
+    """Word-boundary keyword check. Plain `kw in text` caused real false
+    positives — 'rate' inside 'generate', 'score' inside 'underscore'."""
+    return any(re.search(r"\b" + re.escape(kw) + r"\b", text) for kw in keywords)
+
+
 async def router_node(state: AgentState) -> dict:
     """
     Entry-point Orchestrator: Classifies the user's request intent and decides
     which pipeline stage to enter — satisfying the mentor's specific requirement:
+      - 'off_topic'   → guardrail: not a literature-review question, reject
+                        before any LLM call (see OUT_OF_SCOPE_* below)
       - 'score_paper' → skip everything, route straight to ReviewerNode (pre-set intent)
       - 'review_only' → skip everything, route straight to ReviewerNode
                         (user already has a draft and just wants it scored)
@@ -356,6 +459,31 @@ async def router_node(state: AgentState) -> dict:
 
     q = state["question"].lower()
 
+    # Bare greetings get a friendly reply and skip the pipeline — without
+    # this, "hi" hits synthesize_node's general branch like anything else.
+    if GREETING_ONLY_PATTERN.match(state["question"].strip()):
+        elapsed = int((time.time() - start) * 1000)
+        return {
+            "intent": "greeting",
+            "draft": "Hi! Ask me about your papers, or tell me what you're researching and I can help you find and synthesize relevant literature.",
+            "trace": [f"[RouterNode +{elapsed}ms] Greeting detected → friendly reply, skipping pipeline"],
+        }
+
+    # Tier-1 guardrail: cheap keyword check, zero LLM cost.
+    for label, patterns in OUT_OF_SCOPE_PATTERNS.items():
+        for pattern in patterns:
+            if re.search(pattern, q):
+                elapsed = int((time.time() - start) * 1000)
+                rejection = OUT_OF_SCOPE_MESSAGES[label]
+                return {
+                    "intent": "off_topic",
+                    "draft": rejection,
+                    "trace": [
+                        f"[RouterNode +{elapsed}ms] Guardrail rejected question as off_topic "
+                        f"(category='{label}', matched pattern={pattern!r}) → routing straight to END"
+                    ],
+                }
+
     # Intent classification — ordered from most specific to least
     review_draft_kws = ["score my draft", "review my draft", "grade my draft", "evaluate my draft", "check my draft", "peer review my draft"]
     analyze_kws = ["compare", "comparison", "difference", "findings", "score", "relevance",
@@ -374,14 +502,40 @@ async def router_node(state: AgentState) -> dict:
         and not any(re.search(r"\b" + kw + r"\b", q) for kw in search_or_write_kws)
     )
 
-    if has_explicit_draft or has_pasted_draft or any(kw in q for kw in review_draft_kws):
+    if has_explicit_draft or has_pasted_draft or _kw_match(review_draft_kws, q):
         intent = "review_only"
-    elif any(kw in q for kw in analyze_kws):
+    elif _kw_match(analyze_kws, q):
         intent = "analyze"
-    elif any(kw in q for kw in summarize_kws):
+    elif _kw_match(summarize_kws, q):
         intent = "summarize"
     else:
         intent = "general"
+
+    # Tier-2: LLM check, only for 'general' (novel off-topic topics land here).
+    if intent == "general":
+        is_research, p_tok, c_tok = await _llm_scope_check(state["question"])
+        if not is_research:
+            elapsed = int((time.time() - start) * 1000)
+            return {
+                "intent": "off_topic",
+                "draft": OUT_OF_SCOPE_MESSAGES["chitchat"],
+                "prompt_tokens": p_tok,
+                "completion_tokens": c_tok,
+                "trace": [
+                    f"[RouterNode +{elapsed}ms] Tier-2 LLM scope check rejected question as off_topic "
+                    f"(no tier-1 pattern matched — novel off-topic topic) → routing straight to END"
+                ],
+            }
+        elapsed = int((time.time() - start) * 1000)
+        return {
+            "intent": intent,
+            "prompt_tokens": p_tok,
+            "completion_tokens": c_tok,
+            "trace": [
+                f"[RouterNode +{elapsed}ms] Orchestrator classified intent='{intent}' (tier-2 scope check passed) "
+                f"→ routing to PlannerNode: \"{state['question'][:55]}...\""
+            ],
+        }
 
     elapsed = int((time.time() - start) * 1000)
     return {
@@ -583,9 +737,12 @@ async def synthesize_node(state: AgentState) -> dict:
         )
     else:
         task_instruction = (
-            "Write a highly academic, structured, and insightful RRL response. "
-            "Use clear markdown formatting with headers and bullet points. "
-            "Cite author names when referring to specific papers."
+            "Respond naturally and helpfully to the user's question. If it relates to the "
+            "project's papers or research topic, ground your answer in the literature with "
+            "in-text citations (Author, Year). If it's a casual or conversational message "
+            "unrelated to any specific paper or research question, just answer briefly and "
+            "normally — do NOT force academic report formatting, headers, or bullet-point "
+            "structure onto something that doesn't call for it."
         )
 
     prompt = (
@@ -655,6 +812,40 @@ async def synthesize_node(state: AgentState) -> dict:
         "completion_tokens": state.get("completion_tokens", 0) + completion_tokens,
         "trace": [f"[SynthesizeNode +{elapsed}ms] Generated draft via {model} (retry #{state.get('retries', 0)}, ~{total_tokens} tokens)."],
     }
+
+
+def _extract_llm_text(raw_val) -> str:
+    """
+    Robustly extract plain text from an LLM response's .content, which can
+    come back as a plain string, a list of Content blocks, or (with some
+    Gemini "thinking" models) a string that's actually a Python-repr'd list
+    like "[{'type': 'text', 'text': '...'}]" — note the single quotes,
+    which breaks json.loads() if passed through directly. This exact
+    pattern already existed inline in synthesize_node; factored out here so
+    review_node (which was missing it entirely, causing "Expecting property
+    name enclosed in double quotes" JSON parse failures) can share it.
+    """
+    if isinstance(raw_val, list):
+        extracted_text = []
+        for item in raw_val:
+            if isinstance(item, dict) and item.get("text"):
+                extracted_text.append(item["text"])
+            elif hasattr(item, "text"):
+                extracted_text.append(item.text)
+            elif isinstance(item, str):
+                extracted_text.append(item)
+        return "\n\n".join(extracted_text)
+    elif isinstance(raw_val, str):
+        if raw_val.strip().startswith("[{'type':") or raw_val.strip().startswith('[{"type":'):
+            try:
+                import ast
+                parsed_list = ast.literal_eval(raw_val)
+                if isinstance(parsed_list, list) and len(parsed_list) > 0:
+                    return parsed_list[0].get("text", raw_val)
+            except Exception:
+                pass
+        return raw_val
+    return str(raw_val)
 
 
 async def review_node(state: AgentState) -> dict:
@@ -740,7 +931,7 @@ async def review_node(state: AgentState) -> dict:
             try:
                 llm = get_llm(m_id)
                 res = await llm.ainvoke(prompt)
-                raw = res.content if isinstance(res.content, str) else str(res.content)
+                raw = _extract_llm_text(res.content)
                 match = re.search(r"\{[\s\S]*\}", raw)
                 if match:
                     parsed = json.loads(match.group(0))
@@ -856,7 +1047,7 @@ async def review_node(state: AgentState) -> dict:
     try:
         llm = get_llm(model)
         result = await llm.ainvoke(review_prompt)
-        raw = result.content if isinstance(result.content, str) else str(result.content)
+        raw = _extract_llm_text(result.content)
         match = re.search(r"\{[\s\S]*\}", raw)
         if match:
             parsed = json.loads(match.group(0))
@@ -904,9 +1095,11 @@ def should_retry(state: AgentState) -> str:
 
 
 
-# ─── Routing: router → planner | extract | review ────────────
+# ─── Routing: router → planner | extract | review | end (guardrail) ──
 def router_decision(state: AgentState) -> str:
     intent = state.get("intent", "general")
+    if intent in ("off_topic", "greeting"):
+        return "end"
     if intent in ("review_only", "score_paper"):
         return "review"
     if intent == "summarize":
@@ -931,6 +1124,7 @@ def build_graph():
         "planner": "planner",
         "extract": "extract",
         "review": "review",   # mentor's 'straight to review' path
+        "end": END,           # guardrail: off-topic questions stop here
     })
     graph.add_conditional_edges("planner", planner_decision, {
         "searchTool": "searchTool",
@@ -992,6 +1186,8 @@ async def run_litassist_graph(
             "model_name": model_name,
         })
     except Exception as err:
+        # result = None here — this branch used to leave it unassigned,
+        # causing an UnboundLocalError a few lines below.
         err_str = str(err)
         print(f"[WARN] Graph execution failed on model '{model_name}': {err_str[:140]}")
         last_error = err_str

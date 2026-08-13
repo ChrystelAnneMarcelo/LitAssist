@@ -96,6 +96,25 @@ Every agent response exposes the following signals in the chat UI:
 
 ---
 
+## Guardrails
+
+`RouterNode` checks every message against a scope filter before it reaches any LLM call, so the chatbot stays focused on literature-review content instead of drifting into general-purpose assistant territory.
+
+**Two tiers:**
+
+| Tier | What it catches | Cost |
+|---|---|---|
+| **1 — Keyword patterns** | Debugging the user's own code (`fix my`, `traceback`, `syntax error`...), app-navigation questions (`how do I add a paper`), and chit-chat (`tell me a joke`) | Free — regex only, no LLM call |
+| **2 — LLM classification** | Novel off-topic topics that share no vocabulary with any tier-1 pattern (e.g. "how do I cook a steak") | One small classification call (`gemini-2.5-flash`, thinking disabled, ~80 input / a few output tokens) — only triggered for messages that don't match tier 1 or any other intent |
+
+**Design notes:**
+- Tier-1 patterns are `\b`-anchored word-boundary regexes, not plain substring checks — an earlier substring-only version had false positives (e.g. `"rate"` matching inside `"narrate"`, `"separate"`, and `"generate"`).
+- Tier-1 deliberately does **not** block bare mentions of the user's own work (`"my model"`, `"my results"`) — only action/complaint phrasing (`"fix my code"`, `"my script won't run"`). Comparing one's own study to the literature (`"how does my accuracy compare to what these papers report"`) is normal, expected RRL-writing behavior and should never be rejected.
+- Tier 2 **fails open**: if the classification call errors (rate limit, network issue), the question is treated as in-scope rather than blocked — a broken guardrail should never be the reason a real question gets rejected.
+- Bare greetings (`hi`, `wassup`, `thanks`) skip both tiers and get a short friendly reply instead of a rejection or a full literature-review-formatted response.
+
+---
+
 ## Features
 
 - **Multi-Database Academic Search** — `SearchToolNode` queries Crossref, OpenAlex, Semantic Scholar, arXiv, and PubMed (via Europe PMC) simultaneously.
@@ -105,6 +124,7 @@ Every agent response exposes the following signals in the chat UI:
 - **APA 7th Edition Citations** — Clean citation generator with one-click copy and interactive **View Paper Online** & **Direct PDF** badges.
 - **Paper Comparison Matrix** — Compare up to 4 selected papers across 6 RRL dimensions.
 - **LangGraph AI Chatbot** — 5-node Python agent pipeline with per-node trace logs, token metrics, review score badges, and fast-path review.
+- **Scope Guardrails** — `RouterNode` rejects off-topic questions (debugging the user's own code, app navigation, chit-chat) before any synthesis call, so the chatbot stays focused on literature-review content. See [Guardrails](#guardrails) below.
 - **Offline Fallback** — Built-in rule-based synthesis engine when backend API limits are reached.
 - **Light & Dark Mode** — Theme toggle with local storage persistence.
 
